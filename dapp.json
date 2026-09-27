@@ -1,3 +1,13 @@
 {
-  "secrets": []
+  "secrets": [],
+  "tests": [
+    {
+      "id": "home.default",
+      "name": "Home screen loads",
+      "path": "/",
+      "expectText": "One Minute Civilization",
+      "visual": true,
+      "impact": ["public/index.html"]
+    }
+  ]
 }

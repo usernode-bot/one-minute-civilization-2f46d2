@@ -1,27 +1,31 @@
 # One Minute Civilization
 
-> **Starter template** — this repo was scaffolded by Homeroom Social
-> Vibecoding. Everything in it is placeholder example code until the
-> app's first real feature is built.
+A very simple multiplayer game: a group steers one shared civilization
+together. Each year, the settlement faces a **Current Event**, the
+group has **60 seconds** to make **one collective decision**, and the
+outcome of that choice becomes next year's starting point.
 
-The scaffold is a small working demo that proves the plumbing works:
+The full loop:
 
-- **Sign-in** — the server verifies the platform-issued user token
-  (an RS256 JWT) on every request, so the app already knows who is
-  using it. No accounts to build.
-- **Database** — the app has its own private Postgres database; the
-  demo stores button presses in a `presses` table.
-- **Live API** — two example routes (`/api/press`,
-  `/api/leaderboard`) read and write through a real Express server.
-- **Styling** — Tailwind CSS, precompiled by `npm run build` during
-  image creation with either Kubernetes/Paketo or standalone Docker.
+**Event → 60 seconds → One decision → Collective outcome → Consequence → Next year**
 
-## Replacing the template
+## Current state
 
-Open the app on Homeroom, tap **Improve** in the header, and describe
-the app you want in plain English — the template will be replaced with
-your real app. You can also run Claude Code against this repo directly;
-start with `CLAUDE.md`, which carries the app-specific notes and
-points at the platform rules.
+This first version is a **static UI shell** only:
 
-Once the real app exists, rewrite this README to describe it.
+- The dashboard (Year, Population, Food, Wealth, Happiness, Nature)
+  shows placeholder numbers.
+- The Current Event section and its four choice buttons are inert —
+  no decision logic, timer, or outcome yet.
+- The History section shows a few placeholder past years.
+
+Not implemented yet: multiplayer, authentication-driven game state,
+database persistence of the civilization, the 60-second timer, random
+events, and the decision/outcome loop itself. Those come next, one
+mechanic at a time.
+
+## Stack
+
+Node.js / Express server, static HTML + Tailwind CSS frontend, per-app
+Postgres database (unused so far). See `CLAUDE.md` for platform
+conventions this app runs under.

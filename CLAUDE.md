@@ -88,11 +88,22 @@ tables you've marked private), etc.
 
 ## About One Minute Civilization
 
-_(add a sentence or two of product context here so Claude Code has a
-shared understanding of what this app is for)_
+A very simple multiplayer game: a group collectively steers one shared
+civilization. Each year the group is shown a **Current Event**, gets
+**60 seconds** to make **one collective decision** from a small set of
+choices, and the outcome becomes the consequence that opens the next
+year. Core loop (not yet implemented — see below):
+Event → 60 seconds → one decision → collective outcome → consequence → next year.
+
+The current version (v1) is a **static UI shell only**: dashboard,
+current event, four choice buttons and history are all placeholder
+content with no timer, no multiplayer, no auth-driven state, and no
+database persistence of game state. Build each mechanic incrementally
+on top of this shell rather than all at once.
 
 ## App-specific conventions
 
-_(optional — e.g. "all currency values stored as integer cents, not
-floats"; "the `posts` table is append-only"; "avoid adding new
-dependencies"; etc.)_
+- Six dashboard stats, in this order: Year, Population, Food, Wealth,
+  Happiness, Nature.
+- Keep the visual style calm and minimal — a simple sim, not a dense
+  strategy-game HUD.
