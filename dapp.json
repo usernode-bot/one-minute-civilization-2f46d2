@@ -8,6 +8,12 @@
       "expectText": "One Minute Civilization",
       "visual": true,
       "impact": ["public/index.html"]
+    },
+    {
+      "name": "Dashboard shows world state",
+      "path": "/",
+      "expectSelector": "[data-field=\"population\"]",
+      "expectText": "Population"
     }
   ]
 }
