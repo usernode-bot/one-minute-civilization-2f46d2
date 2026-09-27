@@ -188,8 +188,16 @@
     function renderDecision(decision) {
       var choiceId = decision && decision.choiceId;
       choiceButtons.forEach(function (btn) {
+        var isSelected = btn.dataset.choice === choiceId;
         btn.disabled = Boolean(choiceId);
-        btn.classList.toggle('border-violet-500', btn.dataset.choice === choiceId);
+        // The base class list already carries `border-zinc-800`, which
+        // compiles later than `border-violet-500` in Tailwind's output, so a
+        // plain toggle of the latter always loses the cascade. `disabled`
+        // buttons are also dimmed by `disabled:opacity-40`, which would wash
+        // out the selected button too. The `!` (important) variants win
+        // both fights so the chosen button reads as clearly distinct.
+        btn.classList.toggle('!border-violet-500', isSelected);
+        btn.classList.toggle('!opacity-100', isSelected);
       });
       if (choiceId) {
         statusEl.textContent = 'Choice: ' + (CHOICE_LABELS[choiceId] || choiceId);
