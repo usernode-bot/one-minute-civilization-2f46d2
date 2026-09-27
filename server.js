@@ -23,7 +23,10 @@ const APP_AUDIENCE = process.env.USERNODE_APP_ID
 // Paths that stay open without authentication. Add a path here (and add it
 // with `app.get`/`app.post` below) if you deliberately want it public.
 // Everything else requires a valid platform-issued JWT.
-const PUBLIC_API_PATHS = new Set(['/health']);
+// `/api/world-state` holds no per-user data - it's the one shared
+// civilization every visitor watches - so it's public rather than gated,
+// matching this step's "no authentication yet" scope.
+const PUBLIC_API_PATHS = new Set(['/health', '/api/world-state']);
 
 app.use(express.json());
 
@@ -100,7 +103,42 @@ app.use((req, res, next) => {
   next();
 });
 
+// The World State: one centralized, in-memory object that represents the
+// current civilization. Every screen and every future game mechanic
+// (decisions, event outcomes, etc.) reads and writes through this single
+// object rather than keeping its own copy of these numbers.
+const worldState = {
+  year: 1,
+  population: 100,
+  food: 100,
+  wealth: 100,
+  happiness: 100,
+  nature: 100,
+};
+
+// The one path by which any World State field may change. Decision
+// resolution and future event logic should call this instead of writing
+// to `worldState` directly, so there is always a single, auditable place
+// mutations happen.
+function updateWorldState(partialChanges) {
+  const allowedKeys = new Set(Object.keys(worldState));
+  for (const key of Object.keys(partialChanges || {})) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`updateWorldState: unknown world state field "${key}"`);
+    }
+  }
+  Object.assign(worldState, partialChanges);
+  return worldState;
+}
+
+// Demonstrates the mutation path this app's future game logic will use.
+// A no-op today (nothing here changes yet) - it just proves the single
+// mutation path works before any real decision or event calls it.
+updateWorldState({});
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+app.get('/api/world-state', (_req, res) => res.json(worldState));
 
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes

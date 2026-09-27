@@ -85,27 +85,27 @@
       <div class="grid grid-cols-3 gap-3">
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Year</span>
-          <span class="text-lg font-semibold">1</span>
+          <span class="text-lg font-semibold" data-field="year">1</span>
         </div>
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Population</span>
-          <span class="text-lg font-semibold">1,000</span>
+          <span class="text-lg font-semibold" data-field="population">100</span>
         </div>
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Food</span>
-          <span class="text-lg font-semibold">500</span>
+          <span class="text-lg font-semibold" data-field="food">100</span>
         </div>
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Wealth</span>
-          <span class="text-lg font-semibold">250</span>
+          <span class="text-lg font-semibold" data-field="wealth">100</span>
         </div>
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Happiness</span>
-          <span class="text-lg font-semibold">70%</span>
+          <span class="text-lg font-semibold" data-field="happiness">100</span>
         </div>
         <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 flex flex-col items-center gap-1 text-center">
           <span class="text-xs text-zinc-500 uppercase tracking-wide">Nature</span>
-          <span class="text-lg font-semibold">80%</span>
+          <span class="text-lg font-semibold" data-field="nature">100</span>
         </div>
       </div>
     </section>
@@ -168,5 +168,31 @@
     </section>
 
   </main>
+
+  <script>
+  // Keeps the dashboard in sync with the server's single World State
+  // object. No local copy of these numbers is kept between refreshes -
+  // every render just reflects whatever the server currently holds.
+  (function () {
+    var FIELDS = ['year', 'population', 'food', 'wealth', 'happiness', 'nature'];
+
+    async function refreshWorldState() {
+      try {
+        var res = await fetch('/api/world-state');
+        if (!res.ok) return;
+        var state = await res.json();
+        FIELDS.forEach(function (field) {
+          var el = document.querySelector('[data-field="' + field + '"]');
+          if (el && state[field] !== undefined) el.textContent = state[field];
+        });
+      } catch (err) {
+        console.warn('world state refresh failed', err);
+      }
+    }
+
+    refreshWorldState();
+    setInterval(refreshWorldState, 3000);
+  })();
+  </script>
 </body>
 </html>

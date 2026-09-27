@@ -11,21 +11,27 @@ The full loop:
 
 ## Current state
 
-This first version is a **static UI shell** only:
+The **World State** is now real: a single centralized, in-memory object
+on the server (`worldState` in `server.js`) holds Year, Population, Food,
+Wealth, Happiness and Nature. The dashboard fetches it from
+`GET /api/world-state` and polls it every few seconds, so it always
+reflects the server's current numbers rather than hardcoded placeholders.
+Any future game logic mutates that same object through the single
+`updateWorldState(partialChanges)` function — no other code path is
+allowed to change it.
 
-- The dashboard (Year, Population, Food, Wealth, Happiness, Nature)
-  shows placeholder numbers.
-- The Current Event section and its four choice buttons are inert —
-  no decision logic, timer, or outcome yet.
-- The History section shows a few placeholder past years.
+The Current Event section and its four choice buttons are still inert —
+no decision logic, timer, or outcome yet. The History section shows a
+few placeholder past years.
 
 Not implemented yet: multiplayer, authentication-driven game state,
-database persistence of the civilization, the 60-second timer, random
+persistent (database-backed) world state, the 60-second timer, random
 events, and the decision/outcome loop itself. Those come next, one
 mechanic at a time.
 
 ## Stack
 
 Node.js / Express server, static HTML + Tailwind CSS frontend, per-app
-Postgres database (unused so far). See `CLAUDE.md` for platform
-conventions this app runs under.
+Postgres database (not yet used for game state — the World State is
+in-memory for now). See `CLAUDE.md` for platform conventions this app
+runs under.
