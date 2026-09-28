@@ -134,7 +134,10 @@
       <button type="button" data-choice="build_housing" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:active:scale-100">
         Build Housing
       </button>
-      <p class="hidden text-sm text-zinc-400 px-1" data-field="decision-status"></p>
+      <div class="hidden rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-1" data-field="decision-summary">
+        <p class="text-sm font-medium text-zinc-100" data-field="decision-summary-heading"></p>
+        <p class="text-sm text-zinc-400" data-field="decision-summary-effects"></p>
+      </div>
     </section>
 
     <section>
@@ -181,8 +184,21 @@
       research: 'Research',
       build_housing: 'Build Housing',
     };
+    // Dashboard stat order (Year excluded - it's never an effect target),
+    // used so the delta list always reads in the same order as the
+    // dashboard tiles above, regardless of key order in `effects`.
+    var STAT_ORDER = ['population', 'food', 'wealth', 'happiness', 'nature'];
+    var STAT_LABELS = {
+      population: 'Population',
+      food: 'Food',
+      wealth: 'Wealth',
+      happiness: 'Happiness',
+      nature: 'Nature',
+    };
     var choiceButtons = document.querySelectorAll('[data-choice]');
-    var statusEl = document.querySelector('[data-field="decision-status"]');
+    var summaryEl = document.querySelector('[data-field="decision-summary"]');
+    var summaryHeadingEl = document.querySelector('[data-field="decision-summary-heading"]');
+    var summaryEffectsEl = document.querySelector('[data-field="decision-summary-effects"]');
     var submitting = false;
 
     function renderDecision(decision) {
@@ -200,11 +216,24 @@
         btn.classList.toggle('!opacity-100', isSelected);
       });
       if (choiceId) {
-        statusEl.textContent = 'Choice: ' + (CHOICE_LABELS[choiceId] || choiceId);
-        statusEl.classList.remove('hidden');
+        summaryHeadingEl.textContent = 'You chose ' + (CHOICE_LABELS[choiceId] || choiceId);
+        summaryEffectsEl.innerHTML = '';
+        summaryEffectsEl.appendChild(document.createTextNode('Effects: '));
+        var effects = (decision && decision.effects) || {};
+        var parts = STAT_ORDER.filter(function (field) { return effects[field] !== undefined; });
+        parts.forEach(function (field, index) {
+          var delta = effects[field];
+          var span = document.createElement('span');
+          span.className = delta >= 0 ? 'text-emerald-400' : 'text-rose-400';
+          span.textContent = STAT_LABELS[field] + ' ' + (delta >= 0 ? '+' : '') + delta;
+          summaryEffectsEl.appendChild(span);
+          if (index < parts.length - 1) summaryEffectsEl.appendChild(document.createTextNode(' · '));
+        });
+        summaryEl.classList.remove('hidden');
       } else {
-        statusEl.textContent = '';
-        statusEl.classList.add('hidden');
+        summaryHeadingEl.textContent = '';
+        summaryEffectsEl.innerHTML = '';
+        summaryEl.classList.add('hidden');
       }
     }
 
