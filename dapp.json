@@ -1,14 +1,20 @@
 {
-  "icon": { "image": "brand/icon.png" },
+  "name": "Snail Derby",
+  "icon": {
+    "image": "brand/icon.png"
+  },
   "secrets": [],
   "tests": [
     {
-      "id": "home.default",
-      "name": "Home screen loads",
+      "id": "home.daily-derby",
+      "name": "Snail Derby home shows the Daily Derby card",
       "path": "/",
-      "expectText": "New game coming soon",
+      "expectText": "DAILY DERBY",
       "visual": true,
-      "impact": ["public/index.html"]
+      "impact": [
+        "public/index.html",
+        "server.js"
+      ]
     }
   ]
 }

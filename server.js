@@ -4,6 +4,8 @@ const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
 const app = express();
+const DRAIN_MS = 3000;
+let shuttingDown = false;
 const port = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -100,7 +102,19 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', (_req, res) => {
+  if (shuttingDown) return res.status(503).json({ status: 'shutting_down' });
+  res.json({ status: 'ok' });
+});
+
+// The signed-in user's identity for the header. `usernode_pubkey` is the
+// linked Homeroom wallet address, or null when none is linked.
+app.get('/api/me', (req, res) => {
+  res.json({
+    username: req.user.username || null,
+    wallet: req.user.usernode_pubkey || null,
+  });
+});
 
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
@@ -146,8 +160,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const DRAIN_MS = 3000;
-let shuttingDown = false;
 
 async function start() {
   const server = app.listen(port, () => console.log(`Listening on :${port}`));
