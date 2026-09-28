@@ -23,15 +23,7 @@ const APP_AUDIENCE = process.env.USERNODE_APP_ID
 // Paths that stay open without authentication. Add a path here (and add it
 // with `app.get`/`app.post` below) if you deliberately want it public.
 // Everything else requires a valid platform-issued JWT.
-// `/api/world-state` holds no per-user data - it's the one shared
-// civilization every visitor watches - so it's public rather than gated,
-// matching this step's "no authentication yet" scope.
-// `/api/decision` submits the group's single collective choice for the
-// round. Like `/api/world-state` it carries no per-user data - it's one
-// shared civilization's decision, not anything scoped to a person - and
-// this app has no auth flow wired up yet, so gating it would make it
-// uncallable rather than safer. Revisit once real multiplayer/auth lands.
-const PUBLIC_API_PATHS = new Set(['/health', '/api/world-state', '/api/decision']);
+const PUBLIC_API_PATHS = new Set(['/health']);
 
 app.use(express.json());
 
@@ -108,89 +100,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// The World State: one centralized, in-memory object that represents the
-// current civilization. Every screen and every future game mechanic
-// (decisions, event outcomes, etc.) reads and writes through this single
-// object rather than keeping its own copy of these numbers.
-const worldState = {
-  year: 1,
-  population: 100,
-  food: 100,
-  wealth: 100,
-  happiness: 100,
-  nature: 100,
-  // Tracks whether the group has already made its one decision for the
-  // current round, and (once made) which stat deltas it applied - carried
-  // here, not just applied to the totals above, so the client can render
-  // the "Effects: ..." summary for anyone loading or polling this state,
-  // not just the caller who made the decision. There is no year-advance
-  // mechanic yet, so today this stays set once made until the process
-  // restarts; a future year-advance feature should reset it back to nulls
-  // when a new round starts.
-  decision: {
-    choiceId: null,
-    madeAt: null,
-    effects: null,
-  },
-};
-
-// The one path by which any World State field may change. Decision
-// resolution and future event logic should call this instead of writing
-// to `worldState` directly, so there is always a single, auditable place
-// mutations happen.
-function updateWorldState(partialChanges) {
-  const allowedKeys = new Set(Object.keys(worldState));
-  for (const key of Object.keys(partialChanges || {})) {
-    if (!allowedKeys.has(key)) {
-      throw new Error(`updateWorldState: unknown world state field "${key}"`);
-    }
-  }
-  Object.assign(worldState, partialChanges);
-  return worldState;
-}
-
-// Demonstrates the mutation path this app's future game logic will use.
-// A no-op today (nothing here changes yet) - it just proves the single
-// mutation path works before any real decision or event calls it.
-updateWorldState({});
-
-// The four choices for the current round's Current Event, and their
-// effects. This is the single source of truth for what each choice does -
-// tweak an entry here to change the game balance, nothing else to touch.
-const CHOICES = {
-  produce_food: { label: 'Produce Food', effects: { food: 15, happiness: 2, nature: -3 } },
-  gather_wood: { label: 'Gather Wood', effects: { wealth: 5, nature: -5, happiness: 1 } },
-  research: { label: 'Research', effects: { wealth: 3, happiness: 3, food: -2 } },
-  build_housing: { label: 'Build Housing', effects: { population: 5, happiness: 5, wealth: -5, nature: -2 } },
-};
-
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-app.get('/api/world-state', (_req, res) => res.json(worldState));
-
-app.post('/api/decision', (req, res) => {
-  const choiceId = req.body && req.body.choice;
-  const choice = CHOICES[choiceId];
-  if (!choice) {
-    return res.status(400).json({ error: 'Unknown choice' });
-  }
-  if (worldState.decision.choiceId) {
-    return res.status(409).json({ error: 'A decision has already been made this round', worldState });
-  }
-
-  const partialChanges = {};
-  for (const [field, delta] of Object.entries(choice.effects)) {
-    partialChanges[field] = worldState[field] + delta;
-  }
-  // Carried on `decision` (not just applied to totals) so GET
-  // /api/world-state can render the "You chose X / Effects: ..." summary
-  // for anyone loading or polling the shared state, not just the caller
-  // who made the decision.
-  partialChanges.decision = { choiceId, madeAt: new Date().toISOString(), effects: choice.effects };
-  updateWorldState(partialChanges);
-
-  res.json(worldState);
-});
 
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes

@@ -58,25 +58,22 @@ this check for you and tells you when you are behind. It is silent offline, so
 its silence is not proof the checkout is current. Inside Homeroom's dev-chat
 the platform fixes the base commit, and none of this applies.
 
-## Starter template
+## Blank slate
 
-The screen this app currently ships — the hero, the "What's already
-working" card, and the Press! example (the demo markup in
-`public/index.html`, the `/api/press` and `/api/leaderboard` routes, and
-the `presses` table bootstrap in `server.js`) — is placeholder content
-from the Homeroom starter template, not product intent.
-
-When the user asks for their first real feature, REPLACE the template
-screen rather than building alongside it:
-
-- remove the `usernode-starter-notice@1` block in `public/index.html`
-  (both sentinel comments and everything between them),
-- remove or repurpose the "Try the example" card, its demo endpoints and
-  the `presses` table as appropriate,
-- rewrite `README.md` to describe the actual app.
+This app previously shipped a game called "One Minute Civilization"
+(a collective decision-making sim). That gameplay — its UI, client-side
+logic, and the `/api/world-state` / `/api/decision` routes — has been
+removed to make room for a different game. The app currently ships only
+a minimal placeholder screen ("New game coming soon") in
+`public/index.html`.
 
 Keep the `usernode-dev-console@1` forwarder `<script>` when rewriting the
 HTML — that block is platform infrastructure, not template content.
+
+When the user asks for the next real feature, build it in place of the
+placeholder screen rather than alongside it, and update this file's
+"About" section below to describe the new game once its concept is
+clear.
 
 If a rule below this line conflicts with the hosted conventions, the
 hosted conventions win. This file is **app-specific** — write down
@@ -86,24 +83,13 @@ tables you've marked private), etc.
 
 ---
 
-## About One Minute Civilization
+## About this app
 
-A very simple multiplayer game: a group collectively steers one shared
-civilization. Each year the group is shown a **Current Event**, gets
-**60 seconds** to make **one collective decision** from a small set of
-choices, and the outcome becomes the consequence that opens the next
-year. Core loop (not yet implemented — see below):
-Event → 60 seconds → one decision → collective outcome → consequence → next year.
-
-The current version (v1) is a **static UI shell only**: dashboard,
-current event, four choice buttons and history are all placeholder
-content with no timer, no multiplayer, no auth-driven state, and no
-database persistence of game state. Build each mechanic incrementally
-on top of this shell rather than all at once.
+No product intent yet — the app is a clean base (auth, bridge, dev
+console, graceful shutdown) waiting on the next game concept. Nothing
+in this section should be assumed until a new game is actually defined.
 
 ## App-specific conventions
 
-- Six dashboard stats, in this order: Year, Population, Food, Wealth,
-  Happiness, Nature.
-- Keep the visual style calm and minimal — a simple sim, not a dense
-  strategy-game HUD.
+None yet. Add conventions here (product intent, data-model quirks,
+style preferences, opt-in policies) as the new game takes shape.

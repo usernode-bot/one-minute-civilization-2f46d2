@@ -6,21 +6,9 @@
       "id": "home.default",
       "name": "Home screen loads",
       "path": "/",
-      "expectText": "One Minute Civilization",
+      "expectText": "New game coming soon",
       "visual": true,
       "impact": ["public/index.html"]
-    },
-    {
-      "name": "Dashboard shows world state",
-      "path": "/",
-      "expectSelector": "[data-field=\"population\"]",
-      "expectText": "Population"
-    },
-    {
-      "name": "Current Event shows decision choices",
-      "path": "/",
-      "expectSelector": "[data-choice=\"produce_food\"]",
-      "expectText": "Produce Food"
     }
   ]
 }
