@@ -145,14 +145,15 @@
   <script>
     // Race Card: display-only for now. Odds and SPD are fixed test values;
     // picking and locking live in memory only. No race runs yet.
+    // Snails are listed alphabetically by name (case-insensitive).
     (function () {
       var SNAILS = [
-        { id: 'lucas', name: 'Lucas', emoji: '🥕', spd: 7, odds: '5.3×', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10' },
-        { id: 'evan', name: 'Evan', emoji: '🌰', spd: 5, odds: '7.4×', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10' },
-        { id: 'snait', name: 'Snait', emoji: '🍪', spd: 7, odds: '5.3×', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' },
+        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', spd: 7, odds: '5.3×', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10' },
         { id: 'drea', name: 'Drea', emoji: '🧇', spd: 4, odds: '9.3×', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10' },
+        { id: 'evan', name: 'Evan', emoji: '🌰', spd: 5, odds: '7.4×', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10' },
+        { id: 'lucas', name: 'Lucas', emoji: '🥕', spd: 7, odds: '5.3×', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10' },
         { id: 'scradio', name: 'Scradio', emoji: '🪨', spd: 7, odds: '5.3×', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10' },
-        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', spd: 7, odds: '5.3×', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10' }
+        { id: 'snait', name: 'Snait', emoji: '🍪', spd: 7, odds: '5.3×', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' }
       ];
 
       var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_6rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
