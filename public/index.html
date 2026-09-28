@@ -224,6 +224,7 @@
       var CHIP_ON = 'shrink-0 text-[10px] font-bold tracking-widest text-white bg-violet-600 rounded px-1.5 py-0.5';
       var PRIMARY = 'w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed';
       var SECONDARY = 'w-full h-11 rounded-xl text-sm font-bold tracking-wide transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center gap-2';
+      var SCORE_CLASS = 'text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3';
 
       // The banner word and pill for each displayed stage.
       var PILL = 'shrink-0 text-[11px] font-bold tracking-widest rounded-full px-2.5 py-1 whitespace-nowrap ';
@@ -889,11 +890,16 @@
         logEl.className = 'flex flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
         if (!derby) {
           scoreEl.textContent = 'RACE 1 / ' + RACES + ' · $NAIL 0';
+          scoreEl.className = SCORE_CLASS;
           return;
         }
-        scoreEl.textContent = derby.currentRace
-          ? 'RACE ' + derby.currentRace + ' / ' + derby.racesPerDerby + ' · $NAIL ' + derby.total
-          : 'DAILY DERBY COMPLETE';
+        if (derby.currentRace) {
+          scoreEl.textContent = 'RACE ' + derby.currentRace + ' / ' + derby.racesPerDerby + ' · $NAIL ' + derby.total;
+          scoreEl.className = SCORE_CLASS;
+        } else {
+          scoreEl.textContent = '';
+          scoreEl.className = 'hidden';
+        }
       }
 
       function render() {
