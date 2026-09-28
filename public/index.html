@@ -815,17 +815,7 @@
         top.appendChild(nums);
         summaryEl.appendChild(top);
 
-        summaryEl.appendChild(shareBlock(sum));
-
         if (sum) {
-          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
-          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
-          var plabel = node('p', 'text-lg font-bold text-violet-300', sum.label);
-          plabel.setAttribute('data-personality', sum.key);
-          pers.appendChild(plabel);
-          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
-          summaryEl.appendChild(pers);
-
           var picks = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
           picks.appendChild(node('h3', 'text-sm font-semibold text-zinc-300', 'Your Derby'));
           var ul = node('ul', 'flex flex-col');
@@ -843,9 +833,19 @@
           });
           picks.appendChild(ul);
           summaryEl.appendChild(picks);
+
+          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
+          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
+          var plabel = node('p', 'text-lg font-bold text-violet-300', sum.label);
+          plabel.setAttribute('data-personality', sum.key);
+          pers.appendChild(plabel);
+          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
+          summaryEl.appendChild(pers);
         }
 
         summaryEl.appendChild(node('p', 'text-xs text-zinc-500 text-center', 'A new slate starts at 00:00 UTC.'));
+
+        summaryEl.appendChild(shareBlock(sum));
       }
 
       // RACE N / 8, $NAIL and the eight steps at the top of the card.
