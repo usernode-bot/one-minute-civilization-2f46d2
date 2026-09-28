@@ -120,12 +120,17 @@ const worldState = {
   happiness: 100,
   nature: 100,
   // Tracks whether the group has already made its one decision for the
-  // current round. There is no year-advance mechanic yet, so today this
-  // stays set once made until the process restarts; a future year-advance
-  // feature should reset it back to nulls when a new round starts.
+  // current round, and (once made) which stat deltas it applied - carried
+  // here, not just applied to the totals above, so the client can render
+  // the "Effects: ..." summary for anyone loading or polling this state,
+  // not just the caller who made the decision. There is no year-advance
+  // mechanic yet, so today this stays set once made until the process
+  // restarts; a future year-advance feature should reset it back to nulls
+  // when a new round starts.
   decision: {
     choiceId: null,
     madeAt: null,
+    effects: null,
   },
 };
 
@@ -153,10 +158,10 @@ updateWorldState({});
 // effects. This is the single source of truth for what each choice does -
 // tweak an entry here to change the game balance, nothing else to touch.
 const CHOICES = {
-  produce_food: { label: 'Produce Food', effects: { food: 10 } },
-  gather_wood: { label: 'Gather Wood', effects: { wealth: 5 } },
-  research: { label: 'Research', effects: { wealth: 3, happiness: 2 } },
-  build_housing: { label: 'Build Housing', effects: { population: 5, wealth: -5 } },
+  produce_food: { label: 'Produce Food', effects: { food: 15, happiness: 2, nature: -3 } },
+  gather_wood: { label: 'Gather Wood', effects: { wealth: 5, nature: -5, happiness: 1 } },
+  research: { label: 'Research', effects: { wealth: 3, happiness: 3, food: -2 } },
+  build_housing: { label: 'Build Housing', effects: { population: 5, happiness: 5, wealth: -5, nature: -2 } },
 };
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -177,7 +182,11 @@ app.post('/api/decision', (req, res) => {
   for (const [field, delta] of Object.entries(choice.effects)) {
     partialChanges[field] = worldState[field] + delta;
   }
-  partialChanges.decision = { choiceId, madeAt: new Date().toISOString() };
+  // Carried on `decision` (not just applied to totals) so GET
+  // /api/world-state can render the "You chose X / Effects: ..." summary
+  // for anyone loading or polling the shared state, not just the caller
+  // who made the decision.
+  partialChanges.decision = { choiceId, madeAt: new Date().toISOString(), effects: choice.effects };
   updateWorldState(partialChanges);
 
   res.json(worldState);
