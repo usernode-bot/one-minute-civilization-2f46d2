@@ -69,7 +69,7 @@
   <link rel="stylesheet" href="/tailwind.css">
   <script src="/usernode-bridge/v1/bridge.js"></script>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen overflow-x-clip">
   <header class="border-b border-zinc-800">
     <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
       <h1 class="text-base font-bold tracking-wide whitespace-nowrap">🐌 SNAIL DERBY</h1>
@@ -110,7 +110,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div class="flex flex-col gap-0.5">
             <span class="text-xs text-zinc-500">Your Rank</span>
-            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">—</span>
+            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">·</span>
           </div>
           <div class="flex flex-col gap-0.5">
             <span class="text-xs text-zinc-500">Your Score</span>
@@ -132,14 +132,25 @@
         Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard.
       </p>
       <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
-      <p data-score class="text-sm font-medium text-zinc-100 border-t border-zinc-800 pt-3">Race 1 of 8 · Your score: 0 $NAIL</p>
+      <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
     </section>
 
-    <section id="race-card" data-state="waiting" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
+    <section id="race-card" data-state="waiting" data-stage="pick" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
+          <span data-progress-race class="text-zinc-100">RACE 1 / 8</span>
+          <span data-progress-nail class="text-violet-300">$NAIL 0</span>
+        </div>
+        <ol id="race-steps" class="grid grid-cols-8 gap-1" aria-label="Race progress"></ol>
+      </div>
+
+      <div id="race-head" class="flex items-center justify-between gap-3">
+        <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
+        <span id="race-stage" class="shrink-0 text-[11px] font-bold tracking-widest rounded-full px-2.5 py-1 whitespace-nowrap border border-violet-500/60 text-violet-300">PICK A SNAIL</span>
+      </div>
 
       <div id="race-field">
-        <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_6rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
+        <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
           <span class="font-medium">Snail</span>
           <span class="font-medium text-right">Speed</span>
           <span class="font-medium text-right">Odds</span>
@@ -149,13 +160,17 @@
       </div>
 
       <div id="race-track" data-phase="" class="hidden relative">
+        <div class="grid grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr] gap-2 pb-1">
+          <span></span>
+          <span data-finish class="text-right text-[11px] font-bold tracking-widest text-zinc-300">🏁 FINISH</span>
+        </div>
         <ul id="race-lanes" class="flex flex-col gap-1.5"></ul>
         <div id="race-countdown" class="hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none" aria-live="assertive">
-          <span id="race-countdown-text" class="font-mono text-5xl font-bold text-zinc-100"></span>
+          <span id="race-countdown-text" class="font-mono text-6xl font-bold text-zinc-100"></span>
         </div>
       </div>
 
-      <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-3 text-center" aria-live="polite"></div>
+      <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2 text-center" aria-live="polite"></div>
 
       <div id="race-controls" class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
         <p id="race-confirm" class="hidden text-sm font-semibold text-violet-300" aria-live="polite"></p>
@@ -201,16 +216,44 @@
         { id: 'snait', name: 'Snait', emoji: '🍪', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' }
       ];
 
-      var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_6rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
-      var ROW_ON = ' border-violet-500/70 bg-violet-500/10';
+      var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_7rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
+      var ROW_ON = ' ring-2 ring-violet-400 border-violet-500/70 bg-violet-500/15';
       var ROW_OFF = ' border-transparent';
-      var BTN = 'shrink-0 w-24 sm:w-auto h-10 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
-      var BTN_ON = ' bg-violet-600 text-white';
+      var BTN = 'shrink-0 w-28 sm:w-auto h-11 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
+      var BTN_ON = ' bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700';
       var BTN_OFF = ' border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 disabled:text-zinc-500 disabled:border-zinc-800 disabled:hover:bg-transparent';
+      var CHIP_ON = 'shrink-0 text-[10px] font-bold tracking-widest text-white bg-violet-600 rounded px-1.5 py-0.5';
       var PRIMARY = 'w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed';
+      var SECONDARY = 'w-full h-11 rounded-xl text-sm font-bold tracking-wide transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center gap-2';
+
+      // The banner word and pill for each displayed stage.
+      var PILL = 'shrink-0 text-[11px] font-bold tracking-widest rounded-full px-2.5 py-1 whitespace-nowrap ';
+      var STAGES = {
+        pick: { label: 'PICK A SNAIL', cls: 'border border-violet-500/60 text-violet-300' },
+        ready: { label: 'READY', cls: 'bg-violet-600 text-white' },
+        racing: { label: 'RACE IN PROGRESS', cls: 'border border-amber-400/50 bg-amber-500/20 text-amber-300' },
+        result: { label: 'RESULT', cls: 'border border-zinc-700 bg-zinc-800 text-zinc-300' },
+        resultWin: { label: 'RESULT', cls: 'border border-violet-400/60 bg-violet-500/20 text-violet-200' },
+        next: { label: 'NEXT RACE', cls: 'border border-teal-400/60 text-teal-300' },
+        complete: { label: 'DAILY DERBY COMPLETE', cls: 'border border-lime-400/50 bg-lime-500/20 text-lime-300' }
+      };
+
+      // Eight-step progress: one small circle per race.
+      var STEP = 'h-7 rounded-full flex items-center justify-center text-xs font-bold ';
+      var STEPS = {
+        win: { glyph: '✓', cls: 'bg-violet-600 text-white', word: 'win' },
+        miss: { glyph: '✓', cls: 'bg-zinc-700 text-zinc-200', word: 'miss' },
+        current: { glyph: '→', cls: 'border-2 border-violet-400 text-violet-300 animate-pulse', word: 'current race' },
+        upcoming: { glyph: '○', cls: 'border border-zinc-700 text-zinc-600', word: 'still to come' }
+      };
 
       var card = document.getElementById('race-card');
+      var headEl = document.getElementById('race-head');
       var title = document.getElementById('race-title');
+      var stageEl = document.getElementById('race-stage');
+      var progRace = document.querySelector('#race-progress [data-progress-race]');
+      var progNail = document.querySelector('#race-progress [data-progress-nail]');
+      var stepsEl = document.getElementById('race-steps');
       var list = document.getElementById('race-snails');
       var controls = document.getElementById('race-controls');
       var confirmEl = document.getElementById('race-confirm');
@@ -232,17 +275,21 @@
       var derby = null;   // the last GET /api/derby
       var shown = 1;      // race number on the card
       var rows = {};
+      var steps = [];
       var error = '';
       var trackRace = 0;  // race the lanes were last drawn for
       var lanes = {};
       var runId = 0;      // bumps on every run, so stale timers do nothing
+      var shareOpen = false;
 
       // Stories are cosmetic: they read settled results and never change them.
       var STORIES = window.snailDerbyStories || null;
       var NAMES = {};
       SNAILS.forEach(function (s) { NAMES[s.id] = s.name; });
       var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var RACES = 8;      // until the slate loads
       var TOKEN = 32;     // px, the w-8 snail token
+      var FINISH_PX = 10; // px, the checkered finish strip
       var WIN_MS = 2000;  // winner's run; the rest finish 150 to 500 ms later
 
       function node(tag, cls, text) {
@@ -267,6 +314,21 @@
         return null;
       }
 
+      function perDerby() {
+        return derby ? derby.racesPerDerby : RACES;
+      }
+
+      // What the banner says. `state` drives behaviour; the stage only adds
+      // whether a waiting card is the derby's first pick or a later one.
+      function stage() {
+        if (state === 'selected') return 'ready';
+        if (state === 'racing') return 'racing';
+        if (state === 'result') return 'result';
+        if (state === 'done') return 'complete';
+        var any = derby && derby.races.some(function (r) { return r.result; });
+        return any ? 'next' : 'pick';
+      }
+
       SNAILS.forEach(function (s) {
         var li = node('li');
         li.setAttribute('data-snail', s.id);
@@ -274,7 +336,11 @@
         var who = node('div', 'flex items-center gap-3 min-w-0');
         who.appendChild(node('span', 'shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl ' + s.badge, s.emoji));
         var text = node('div', 'min-w-0 flex flex-col');
-        text.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
+        var nameRow = node('div', 'flex items-center gap-2 min-w-0');
+        nameRow.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
+        var chip = node('span', 'hidden', 'SELECTED');
+        nameRow.appendChild(chip);
+        text.appendChild(nameRow);
         var meta = node('span', 'sm:hidden text-xs text-zinc-400 flex items-center gap-1.5');
         var spdM = node('span', 'font-mono rounded px-1.5 py-0.5 ' + s.chip, 'SPD ·');
         meta.appendChild(spdM);
@@ -299,15 +365,30 @@
         li.appendChild(btn);
 
         list.appendChild(li);
-        rows[s.id] = { li: li, btn: btn, spd: [spdM, spdD], odds: [oddsM, oddsD] };
+        rows[s.id] = { li: li, btn: btn, chip: chip, spd: [spdM, spdD], odds: [oddsM, oddsD] };
       });
 
+      for (var sn = 1; sn <= RACES; sn++) {
+        var stepLi = node('li');
+        stepLi.setAttribute('data-step', String(sn));
+        stepsEl.appendChild(stepLi);
+        steps.push(stepLi);
+      }
+
+      // One pick at a time: the other Pick buttons are disabled until the
+      // pick is cleared by tapping it again.
       function pick(id) {
         if (state !== 'waiting' && state !== 'selected') return;
-        if (!race(shown) || picked === id) return;
-        picked = id;
-        state = 'selected';
+        if (!race(shown)) return;
         error = '';
+        if (picked === id) {
+          picked = null;
+          state = 'waiting';
+        } else {
+          if (picked) return;
+          picked = id;
+          state = 'selected';
+        }
         render();
       }
 
@@ -340,28 +421,36 @@
         if (window.snailDerby.loadBoard) window.snailDerby.loadBoard();
       }
 
-      // Lanes for race n, in the Race Card's order.
+      // Lanes for race n, in the Race Card's order, each ending in a
+      // checkered finish strip.
       function buildTrack(n) {
         lanesEl.textContent = '';
         lanes = {};
         SNAILS.forEach(function (s) {
-          var li = node('li', 'grid grid-cols-[4.5rem_1fr] items-center gap-2');
+          var li = node('li', 'grid grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr] items-center gap-2');
           li.setAttribute('data-lane', s.id);
           li.appendChild(node('span', 'text-xs font-semibold text-zinc-300 truncate', s.name));
-          var lane = node('div', 'relative h-10 rounded-lg border border-zinc-800 bg-zinc-950');
-          lane.appendChild(node('span', 'absolute inset-y-1 right-1 border-r-2 border-dashed border-zinc-600'));
-          var tok = node('span', 'absolute left-1 top-1 w-8 h-8 rounded-full flex items-center justify-center text-base ' + s.badge, s.emoji);
+          var lane = node('div', 'relative h-10 rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden');
+          var fin = node('span', 'absolute inset-y-0 right-0 opacity-80');
+          fin.style.width = FINISH_PX + 'px';
+          fin.style.backgroundImage = 'repeating-conic-gradient(#e4e4e7 0 25%, #18181b 0 50%)';
+          fin.style.backgroundSize = FINISH_PX + 'px ' + FINISH_PX + 'px';
+          lane.appendChild(fin);
+          var tag = node('span', 'hidden', '🏆 WINNER');
+          tag.style.right = (TOKEN + FINISH_PX + 8) + 'px';
+          lane.appendChild(tag);
+          var tok = node('span', 'absolute left-1 top-1 w-8 h-8 rounded-full flex items-center justify-center text-base transition-opacity ' + s.badge, s.emoji);
           lane.appendChild(tok);
           li.appendChild(lane);
           lanesEl.appendChild(li);
-          lanes[s.id] = { li: li, lane: lane, tok: tok, anim: null };
+          lanes[s.id] = { li: li, lane: lane, tok: tok, tag: tag, anim: null };
         });
         trackRace = n;
       }
 
       function distance() {
         var any = lanes[SNAILS[0].id];
-        return Math.max(0, any.lane.clientWidth - TOKEN - 8);
+        return Math.max(0, any.lane.clientWidth - TOKEN - 8 - FINISH_PX);
       }
 
       function placeAll(x) {
@@ -380,19 +469,27 @@
       // snail creeps forward together (up to 15% of the track) so nobody
       // leads before the result is known.
       function countdown(id, onGo) {
-        var steps = ['3', '2', '1', 'GO!'];
+        var seq = ['3', '2', '1', 'GO!'];
         var i = 0;
         setPhase('countdown');
         countEl.className = 'absolute inset-0 flex items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none';
         (function tick() {
           if (id !== runId) return;
-          if (i === steps.length) {
+          if (i === seq.length) {
             countEl.className = 'hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none';
             onGo();
             return;
           }
-          countText.textContent = steps[i++];
-          setTimeout(tick, i === steps.length ? 350 : 500);
+          var word = seq[i++];
+          countText.textContent = word;
+          countText.className = 'font-mono text-6xl font-bold ' + (word === 'GO!' ? 'text-violet-300' : 'text-zinc-100');
+          if (!REDUCED && countText.animate) {
+            countText.animate(
+              [{ transform: 'scale(1.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }],
+              { duration: 280, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.3)' }
+            );
+          }
+          setTimeout(tick, i === seq.length ? 350 : 500);
         })();
       }
 
@@ -424,7 +521,16 @@
           Object.keys(lanes).forEach(function (sid) {
             var l = lanes[sid];
             var on = sid === res.winner;
-            l.lane.className = 'relative h-10 rounded-lg border ' + (on ? 'border-violet-500/70 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950');
+            l.lane.className = 'relative h-10 rounded-lg border overflow-hidden ' + (on ? 'border-violet-500/70 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950');
+            l.tag.className = on
+              ? 'absolute top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap'
+              : 'hidden';
+            if (on) {
+              l.li.setAttribute('data-winner', '');
+            } else {
+              l.li.removeAttribute('data-winner');
+              l.tok.classList.add('opacity-50');
+            }
           });
           setPhase('finished');
           done();
@@ -517,7 +623,7 @@
       runBtn.addEventListener('click', run);
 
       function next() {
-        if (!derby) return;
+        if (!derby || state !== 'result') return;
         if (derby.currentRace) {
           shown = derby.currentRace;
           picked = null;
@@ -538,6 +644,8 @@
         return b;
       }
 
+      // Compact result: winner, your pick with WIN or MISS and the $NAIL it
+      // earned, the two story lines, your score, then NEXT RACE.
       function renderResult(r) {
         resultEl.textContent = '';
         var res = r.result;
@@ -546,34 +654,36 @@
         var story = STORIES ? STORIES.storiesFor(derby, NAMES)[r.raceNumber] : null;
         resultEl.setAttribute('data-outcome', res.won ? 'win' : 'miss');
 
-        var wBlock = node('div', 'flex flex-col items-center gap-1');
-        var wName = node('h3', 'flex items-center gap-2 text-lg font-bold text-zinc-100');
-        wName.appendChild(node('span', 'w-8 h-8 rounded-full flex items-center justify-center text-base ' + win.badge, win.emoji));
-        wName.appendChild(node('span', null, '🏆 ' + win.name.toUpperCase() + ' WINS!'));
-        wBlock.appendChild(wName);
-        resultEl.appendChild(wBlock);
-        if (story) resultEl.appendChild(reason('Why ' + win.name + ' won', story.winnerLine, 'data-why-winner'));
+        var head = node('div', 'flex flex-col items-center gap-1');
+        head.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', '🏁 WINNER'));
+        var wName = node('p', 'flex items-center gap-2 text-2xl font-bold text-zinc-100');
+        wName.setAttribute('data-result-winner', res.winner);
+        wName.appendChild(node('span', 'w-9 h-9 rounded-full flex items-center justify-center text-lg ' + win.badge, win.emoji));
+        wName.appendChild(node('span', null, win.name));
+        head.appendChild(wName);
+        resultEl.appendChild(head);
 
-        var pBlock = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
-        var pHead = node('div', 'flex items-center justify-between gap-3');
-        var pWho = node('div', 'flex flex-col items-start gap-0.5');
-        pWho.appendChild(node('span', 'text-xs text-zinc-500', 'Your pick'));
-        pWho.appendChild(node('span', 'font-semibold text-zinc-200', mine.emoji + ' ' + mine.name));
-        pHead.appendChild(pWho);
-        var pOut = node('div', 'flex flex-col items-end gap-0.5');
-        pOut.appendChild(node('span', 'text-sm font-bold tracking-widest ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), res.won ? 'WIN' : 'MISS'));
-        pOut.appendChild(node('span', 'font-mono tabular-nums text-xl font-bold ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), '+' + res.nail + ' $NAIL'));
-        pHead.appendChild(pOut);
-        pBlock.appendChild(pHead);
+        var mineRow = node('div', 'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2 ' + (res.won ? 'border-violet-500/60 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950'));
+        var who = node('span', 'text-sm text-zinc-300 text-left', 'You picked: ' + mine.emoji + ' ' + mine.name);
+        who.setAttribute('data-result-pick', res.pick);
+        mineRow.appendChild(who);
+        var out = node('div', 'flex items-center gap-2');
+        out.appendChild(node('span', 'text-xs font-bold tracking-widest rounded-full px-2 py-0.5 ' + (res.won ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-400'), res.won ? 'WIN' : 'MISS'));
+        var nail = node('span', 'font-mono tabular-nums text-lg font-bold ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), '+' + res.nail + ' $NAIL');
+        nail.setAttribute('data-result-nail', String(res.nail));
+        out.appendChild(nail);
+        mineRow.appendChild(out);
+        resultEl.appendChild(mineRow);
+
         if (story) {
-          pBlock.appendChild(reason(res.won ? 'Why your pick won' : 'Why ' + mine.name + ' lost', story.pickLine, 'data-why-pick'));
+          resultEl.appendChild(reason('Why ' + win.name + ' won', story.winnerLine, 'data-why-winner'));
+          resultEl.appendChild(reason(res.won ? 'Why your pick won' : 'Why ' + mine.name + ' lost', story.pickLine, 'data-why-pick'));
         }
-        resultEl.appendChild(pBlock);
 
-        var dBlock = node('div', 'flex flex-col items-center gap-0.5 border-t border-zinc-800 pt-3');
-        dBlock.appendChild(node('span', 'text-xs text-zinc-500', 'Daily Score'));
-        dBlock.appendChild(node('span', 'font-mono tabular-nums text-lg font-bold text-zinc-100', derby.total + ' $NAIL'));
-        resultEl.appendChild(dBlock);
+        var score = node('div', 'flex items-center justify-between gap-3 border-t border-zinc-800 pt-2');
+        score.appendChild(node('span', 'text-xs text-zinc-500', 'Your score'));
+        score.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-zinc-100', '$NAIL ' + derby.total));
+        resultEl.appendChild(score);
 
         var nextBtn = node('button', PRIMARY, derby.currentRace ? 'NEXT RACE' : 'SEE YOUR DERBY');
         nextBtn.type = 'button';
@@ -582,24 +692,140 @@
         resultEl.appendChild(nextBtn);
       }
 
-      // Race 8 summary: picks per snail and a playful verdict. The verdict
-      // is a story; the score and the leaderboard come from the server.
+      // The share message. Only numbers already on screen, the personality
+      // label and the app's own address, never the query string (it
+      // carries the platform token).
+      function shareText(sum) {
+        var n = derby.racesPerDerby;
+        return '🐌 I finished today\'s Snail Derby! ' + n + ' / ' + n + ' RACES · $NAIL ' + derby.total +
+          (sum ? ' · ' + sum.label : '') + '. Pick your snails: ' + location.origin + '/';
+      }
+
+      function copyText(text) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) return Promise.reject(new Error('no clipboard'));
+        return navigator.clipboard.writeText(text);
+      }
+
+      // Homeroom has no share-to-messages call for apps yet, so this tries
+      // the system share sheet, then the clipboard, then a box to copy from.
+      function sendMessage(text, ui) {
+        var canShare = navigator.share && !(navigator.canShare && navigator.canShare({ text: text }) === false);
+        var copied = function () { return copyText(text).then(function () { return 'copied'; }); };
+        var step = canShare
+          ? navigator.share({ title: 'Snail Derby', text: text }).then(
+              function () { return 'shared'; },
+              function (err) { return err && err.name === 'AbortError' ? 'cancelled' : copied(); }
+            )
+          : copied();
+        step.then(function (how) {
+          if (how !== 'copied') return;
+          ui.label.textContent = '✓ COPIED';
+          ui.note.textContent = 'Copied. Paste it into a Homeroom message or anywhere else.';
+          ui.note.className = 'text-xs text-zinc-400 text-center';
+          clearTimeout(ui.timer);
+          ui.timer = setTimeout(function () { ui.label.textContent = 'SEND IN A MESSAGE'; }, 2000);
+        }, function () {
+          ui.note.textContent = 'Copy this and paste it into a Homeroom message.';
+          ui.note.className = 'text-xs text-zinc-400 text-center';
+          ui.area.className = 'w-full rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-sm text-zinc-200';
+          ui.area.focus();
+          ui.area.select();
+        });
+      }
+
+      function shareBlock(sum) {
+        var text = shareText(sum);
+        var wrap = node('div', 'flex flex-col gap-2');
+
+        var btn = node('button', PRIMARY, 'SHARE YOUR DERBY');
+        btn.type = 'button';
+        btn.id = 'share-derby';
+        btn.setAttribute('aria-controls', 'share-options');
+        wrap.appendChild(btn);
+
+        var opts = node('div');
+        opts.id = 'share-options';
+
+        var href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(text);
+        var x = node('a', SECONDARY);
+        x.id = 'share-x';
+        x.setAttribute('data-share', 'x');
+        x.href = href;
+        x.target = '_blank';
+        x.rel = 'noopener noreferrer';
+        x.appendChild(node('span', 'text-base', '𝕏'));
+        x.appendChild(node('span', null, 'POST ON X'));
+        // Inside the mobile app only openExternal can leave the webview.
+        x.addEventListener('click', function (e) {
+          var u = window.usernode;
+          if (u && u.isNative && typeof u.openExternal === 'function') {
+            e.preventDefault();
+            u.openExternal(href).catch(function () { window.open(href, '_blank', 'noopener'); });
+          }
+        });
+        opts.appendChild(x);
+
+        var msg = node('button', SECONDARY);
+        msg.type = 'button';
+        msg.id = 'share-message';
+        msg.setAttribute('data-share', 'message');
+        msg.appendChild(node('span', 'text-base', '💬'));
+        var label = node('span', null, 'SEND IN A MESSAGE');
+        msg.appendChild(label);
+        opts.appendChild(msg);
+        wrap.appendChild(opts);
+
+        var note = node('p', 'hidden');
+        note.id = 'share-note';
+        note.setAttribute('aria-live', 'polite');
+        wrap.appendChild(note);
+
+        var area = node('textarea', 'hidden');
+        area.readOnly = true;
+        area.rows = 3;
+        area.value = text;
+        area.setAttribute('data-share-text', '');
+        area.addEventListener('focus', function () { area.select(); });
+        wrap.appendChild(area);
+
+        var ui = { label: label, note: note, area: area, timer: null };
+        msg.addEventListener('click', function () { sendMessage(text, ui); });
+
+        function sync() {
+          btn.setAttribute('aria-expanded', shareOpen ? 'true' : 'false');
+          opts.className = shareOpen ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : 'hidden grid-cols-1 sm:grid-cols-2 gap-2';
+        }
+        btn.addEventListener('click', function () { shareOpen = !shareOpen; sync(); });
+        sync();
+        return wrap;
+      }
+
+      // Race 8: the finish, the share action, then the playful verdict. The
+      // verdict is a story; the score and the leaderboard come from the
+      // server.
       function renderSummary() {
         summaryEl.textContent = '';
         var sum = STORIES ? STORIES.summaryFor(derby, NAMES) : null;
 
-        var top = node('div', 'grid grid-cols-2 gap-3');
-        var racesB = node('div', 'flex flex-col gap-0.5');
-        racesB.appendChild(node('span', 'text-xs text-zinc-500', 'Races'));
-        racesB.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-zinc-100', derby.racesPerDerby + ' / ' + derby.racesPerDerby + ' RACES'));
-        top.appendChild(racesB);
-        var scoreB = node('div', 'flex flex-col gap-0.5');
-        scoreB.appendChild(node('span', 'text-xs text-zinc-500', 'Your Score'));
-        scoreB.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-violet-300', derby.total + ' $NAIL'));
-        top.appendChild(scoreB);
+        var top = node('div', 'flex flex-col items-center gap-3 text-center rounded-xl border border-lime-400/40 bg-lime-500/10 px-3 py-4');
+        top.appendChild(node('h2', 'text-xl font-bold tracking-wide text-lime-300', '🏁 DAILY DERBY COMPLETE'));
+        var nums = node('div', 'grid grid-cols-2 gap-3 w-full');
+        nums.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-zinc-100', derby.racesPerDerby + ' / ' + derby.racesPerDerby + ' RACES'));
+        nums.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-violet-300', '$NAIL ' + derby.total));
+        top.appendChild(nums);
         summaryEl.appendChild(top);
 
+        summaryEl.appendChild(shareBlock(sum));
+
         if (sum) {
+          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
+          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
+          var plabel = node('p', 'text-lg font-bold text-violet-300', sum.label);
+          plabel.setAttribute('data-personality', sum.key);
+          pers.appendChild(plabel);
+          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
+          summaryEl.appendChild(pers);
+
           var picks = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
           picks.appendChild(node('h3', 'text-sm font-semibold text-zinc-300', 'Your Derby'));
           var ul = node('ul', 'flex flex-col');
@@ -617,61 +843,80 @@
           });
           picks.appendChild(ul);
           summaryEl.appendChild(picks);
-
-          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
-          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
-          var label = node('p', 'text-lg font-bold text-violet-300', sum.label);
-          label.setAttribute('data-personality', sum.key);
-          pers.appendChild(label);
-          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
-          summaryEl.appendChild(pers);
         }
 
-        var btn = node('button', PRIMARY, 'VIEW DAILY LEADERBOARD');
-        btn.type = 'button';
-        btn.id = 'view-leaderboard';
-        btn.addEventListener('click', function () {
-          refreshBoard();
-          var lb = document.getElementById('leaderboard');
-          if (lb) lb.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' });
-        });
-        summaryEl.appendChild(btn);
         summaryEl.appendChild(node('p', 'text-xs text-zinc-500 text-center', 'A new slate starts at 00:00 UTC.'));
       }
 
+      // RACE N / 8, $NAIL and the eight steps at the top of the card.
+      function renderProgress() {
+        var total = perDerby();
+        var complete = derby && !derby.currentRace;
+        progRace.textContent = 'RACE ' + shown + ' / ' + total;
+        progNail.textContent = '$NAIL ' + (derby ? derby.total : 0);
+        steps.forEach(function (li, i) {
+          var n = i + 1;
+          var r = race(n);
+          var st = r && r.result
+            ? (r.result.won ? 'win' : 'miss')
+            : (!complete && n === shown ? 'current' : 'upcoming');
+          var s = STEPS[st];
+          li.setAttribute('data-step-state', st);
+          li.className = STEP + s.cls;
+          li.textContent = s.glyph;
+          li.setAttribute('aria-label', 'Race ' + n + ': ' + s.word);
+        });
+      }
+
+      // Every race of the day in the Daily Derby card: done, current, to come.
       function renderScore() {
         logEl.textContent = '';
-        if (!derby) return;
-        var done = derby.races.filter(function (r) { return r.result; });
-        done.forEach(function (r) {
-          var li = node('li', 'grid grid-cols-[1fr_auto_auto] gap-3 py-0.5');
+        // Before the slate loads, the eight races still show, none run yet.
+        var list = derby ? derby.races : [];
+        if (!derby) for (var i = 1; i <= RACES; i++) list.push({ raceNumber: i, result: null });
+        var cur = derby ? derby.currentRace : 1;
+        list.forEach(function (r) {
+          var res = r.result;
+          var st = res ? (res.won ? 'win' : 'miss') : (r.raceNumber === cur ? 'current' : 'upcoming');
+          var li = node('li', 'grid grid-cols-[1.25rem_1fr_auto_auto] gap-2 py-0.5');
           li.setAttribute('data-log-race', String(r.raceNumber));
-          li.appendChild(node('span', 'text-zinc-400', 'Race ' + r.raceNumber));
-          li.appendChild(node('span', r.result.won ? 'font-semibold text-violet-300' : 'text-zinc-500', r.result.won ? 'WIN' : 'MISS'));
-          li.appendChild(node('span', 'text-right ' + (r.result.won ? 'text-zinc-100' : 'text-zinc-500'), '+' + r.result.nail + ' $NAIL'));
+          li.setAttribute('data-log-state', st);
+          var dim = st === 'upcoming' ? 'text-zinc-600' : st === 'current' ? 'text-violet-300 font-semibold' : 'text-zinc-400';
+          li.appendChild(node('span', dim, STEPS[st].glyph));
+          li.appendChild(node('span', dim, 'Race ' + r.raceNumber));
+          li.appendChild(node('span', res ? (res.won ? 'font-semibold text-violet-300' : 'text-zinc-500') : '', res ? (res.won ? 'WIN' : 'MISS') : ''));
+          li.appendChild(node('span', 'text-right ' + (res && res.won ? 'text-zinc-100' : 'text-zinc-500'), res ? '+' + res.nail + ' $NAIL' : ''));
           logEl.appendChild(li);
         });
-        if (done.length) {
-          var tot = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1.5 mt-1 border-t border-zinc-800 font-bold');
-          tot.appendChild(node('span', 'text-zinc-300', 'TOTAL'));
-          tot.appendChild(node('span', 'text-right text-zinc-100', derby.total + ' $NAIL'));
-          logEl.appendChild(tot);
-          logEl.className = 'flex flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
-        } else {
-          logEl.className = 'hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
+        var total = derby ? derby.total : 0;
+        var tot = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1.5 mt-1 border-t border-zinc-800 font-bold');
+        tot.appendChild(node('span', 'text-zinc-300', 'TOTAL'));
+        tot.appendChild(node('span', 'text-right text-zinc-100', '$NAIL ' + total));
+        logEl.appendChild(tot);
+        logEl.className = 'flex flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
+        if (!derby) {
+          scoreEl.textContent = 'RACE 1 / ' + RACES + ' · $NAIL 0';
+          return;
         }
-        var head = derby.currentRace
-          ? 'Race ' + derby.currentRace + ' of ' + derby.racesPerDerby
-          : 'Daily Derby complete';
-        scoreEl.textContent = head + ' · Your score: ' + derby.total + ' $NAIL';
+        scoreEl.textContent = (derby.currentRace
+          ? 'RACE ' + derby.currentRace + ' / ' + derby.racesPerDerby
+          : 'DAILY DERBY COMPLETE') + ' · $NAIL ' + derby.total;
       }
 
       function render() {
+        var st = stage();
         card.setAttribute('data-state', state);
+        card.setAttribute('data-stage', st);
         card.setAttribute('data-race', String(shown));
+        card.setAttribute('aria-busy', state === 'racing' ? 'true' : 'false');
         var complete = state === 'done' && derby && !derby.currentRace;
-        title.textContent = complete ? '🏁 DAILY DERBY COMPLETE' : '🏁 Race ' + shown;
+        title.textContent = '🏁 Race ' + shown;
+        headEl.className = complete ? 'hidden' : 'flex items-center justify-between gap-3';
         var r = race(shown);
+        var won = st === 'result' && r && r.result && r.result.won;
+        var pill = STAGES[won ? 'resultWin' : st];
+        stageEl.textContent = pill.label;
+        stageEl.className = PILL + pill.cls;
         var locked = state === 'racing' || state === 'result' || state === 'done';
 
         SNAILS.forEach(function (s) {
@@ -684,10 +929,11 @@
           row.li.className = ROW + (on ? ROW_ON : ROW_OFF) + dim;
           if (on) row.li.setAttribute('data-selected', '');
           else row.li.removeAttribute('data-selected');
+          row.chip.className = on ? CHIP_ON : 'hidden';
           row.btn.className = BTN + (on ? BTN_ON : BTN_OFF);
-          row.btn.textContent = on ? '✓ Picked' : 'Pick';
+          row.btn.textContent = on ? '✓ SELECTED' : 'Pick';
           row.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-          row.btn.disabled = locked || !r;
+          row.btn.disabled = locked || !r || !!(picked && !on);
         });
 
         fieldEl.className = state === 'racing' || state === 'result' || complete ? 'hidden' : '';
@@ -695,17 +941,18 @@
 
         var showResult = state === 'result' && r && r.result;
         if (showResult) renderResult(r);
+        else resultEl.textContent = '';
         resultEl.className = showResult
-          ? 'border-t border-zinc-800 pt-3 flex flex-col gap-3 text-center'
-          : 'hidden border-t border-zinc-800 pt-3 flex-col gap-3 text-center';
+          ? 'border-t border-zinc-800 pt-3 flex flex-col gap-2 text-center'
+          : 'hidden border-t border-zinc-800 pt-3 flex-col gap-2 text-center';
         controls.className = state === 'result' || state === 'done'
           ? 'hidden border-t border-zinc-800 pt-3 flex-col gap-2'
           : 'border-t border-zinc-800 pt-3 flex flex-col gap-2';
         if (complete) renderSummary();
         summaryEl.className = complete ? 'flex flex-col gap-4' : 'hidden flex-col gap-4';
 
-        if (picked && (state === 'selected' || state === 'racing')) {
-          confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected';
+        if (picked && state === 'selected') {
+          confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected. Hit RUN RACE.';
           confirmEl.className = 'text-sm font-semibold text-violet-300';
         } else {
           confirmEl.textContent = '';
@@ -715,11 +962,13 @@
         runBtn.disabled = state !== 'selected';
         runBtn.textContent = state === 'racing' ? 'RACING…' : 'RUN RACE';
         if (error) hint.textContent = error;
+        else if (st === 'next') hint.textContent = 'Race ' + shown + ' of ' + perDerby() + '. Pick a snail.';
         else hint.textContent = 'Pick a snail to run the race.';
         hint.className = state === 'waiting' || error
           ? 'text-xs text-zinc-500 text-center'
           : 'hidden text-xs text-zinc-500 text-center';
 
+        renderProgress();
         renderScore();
       }
 
@@ -792,11 +1041,11 @@
         youEl.className = 'flex border-t border-zinc-800 pt-3 flex-col gap-2';
         var hint = '';
         if (!you.hasWallet) {
-          yourRankEl.textContent = '—';
-          yourScoreEl.textContent = '—';
+          yourRankEl.textContent = '·';
+          yourScoreEl.textContent = '·';
           hint = 'Link a HomeRoom wallet to appear on the leaderboard.';
         } else if (you.rank == null) {
-          yourRankEl.textContent = '—';
+          yourRankEl.textContent = '·';
           yourScoreEl.textContent = '0 $NAIL';
           hint = 'Finish a race to get on the board.';
         } else {
