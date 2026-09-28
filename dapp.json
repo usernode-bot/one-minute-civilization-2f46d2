@@ -25,7 +25,7 @@
       "id": "home.leaderboard",
       "name": "Daily Derby Leaderboard shows verified $NAIL scores",
       "path": "/?demo=1",
-      "expectSelector": "#leaderboard [data-rank=\"7\"]",
+      "expectSelector": "#leaderboard [data-rank=\"10\"]",
       "visual": true,
       "impact": [
         "public/index.html",
@@ -35,9 +35,24 @@
       ]
     },
     {
-      "name": "Leaderboard shows a fallback player by username",
+      "name": "Leaderboard shows shortened wallet addresses",
       "path": "/?demo=1",
-      "expectText": "@staging-demo-snail"
+      "expectText": "ut1sta…0001"
+    },
+    {
+      "name": "Leaderboard header says Today's top scores",
+      "path": "/",
+      "expectText": "Today's top scores"
+    },
+    {
+      "name": "Leaderboard shows the player's own rank panel",
+      "path": "/",
+      "expectSelector": "#leaderboard [data-your-rank]"
+    },
+    {
+      "name": "Your Rank panel labels render",
+      "path": "/?demo=1",
+      "expectText": "Your Rank"
     },
     {
       "name": "Leaderboard is a game score only",
