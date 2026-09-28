@@ -120,7 +120,146 @@
       </p>
       <p class="text-sm font-medium text-zinc-100 border-t border-zinc-800 pt-3">Race 1 of 8 · Your score: 0 pts</p>
     </section>
+
+    <section id="race-card" data-state="waiting" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <h2 class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
+
+      <div>
+        <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_6rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
+          <span class="font-medium">Snail</span>
+          <span class="font-medium text-right">Speed</span>
+          <span class="font-medium text-right">Odds</span>
+          <span></span>
+        </div>
+        <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
+      </div>
+
+      <div class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
+        <p id="race-confirm" class="hidden text-sm font-semibold text-violet-300" aria-live="polite"></p>
+        <button id="run-race" type="button" disabled class="w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">RUN RACE</button>
+        <p id="race-hint" class="text-xs text-zinc-500 text-center">Pick a snail to run the race.</p>
+      </div>
+    </section>
   </main>
+
+  <script>
+    // Race Card: display-only for now. Odds and SPD are fixed test values;
+    // picking and locking live in memory only. No race runs yet.
+    // Snails are listed alphabetically by name (case-insensitive).
+    (function () {
+      var SNAILS = [
+        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', spd: 7, odds: '5.3×', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10' },
+        { id: 'drea', name: 'Drea', emoji: '🧇', spd: 4, odds: '9.3×', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10' },
+        { id: 'evan', name: 'Evan', emoji: '🌰', spd: 5, odds: '7.4×', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10' },
+        { id: 'lucas', name: 'Lucas', emoji: '🥕', spd: 7, odds: '5.3×', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10' },
+        { id: 'scradio', name: 'Scradio', emoji: '🪨', spd: 7, odds: '5.3×', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10' },
+        { id: 'snait', name: 'Snait', emoji: '🍪', spd: 7, odds: '5.3×', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' }
+      ];
+
+      var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_6rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
+      var ROW_ON = ' border-violet-500/70 bg-violet-500/10';
+      var ROW_OFF = ' border-transparent';
+      var BTN = 'shrink-0 w-24 sm:w-auto h-10 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
+      var BTN_ON = ' bg-violet-600 text-white';
+      var BTN_OFF = ' border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 disabled:text-zinc-500 disabled:border-zinc-800 disabled:hover:bg-transparent';
+
+      var card = document.getElementById('race-card');
+      var list = document.getElementById('race-snails');
+      var confirmEl = document.getElementById('race-confirm');
+      var runBtn = document.getElementById('run-race');
+      var hint = document.getElementById('race-hint');
+
+      var state = 'waiting';
+      var picked = null;
+      var rows = {};
+
+      function node(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+      }
+
+      SNAILS.forEach(function (s) {
+        var li = node('li');
+        li.setAttribute('data-snail', s.id);
+
+        var who = node('div', 'flex items-center gap-3 min-w-0');
+        who.appendChild(node('span', 'shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl ' + s.badge, s.emoji));
+        var text = node('div', 'min-w-0 flex flex-col');
+        text.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
+        var meta = node('span', 'sm:hidden text-xs text-zinc-400 flex items-center gap-1.5');
+        meta.appendChild(node('span', 'font-mono rounded px-1.5 py-0.5 ' + s.chip, 'SPD ' + s.spd));
+        meta.appendChild(node('span', null, '·'));
+        meta.appendChild(node('span', 'font-mono tabular-nums text-zinc-200', s.odds));
+        text.appendChild(meta);
+        who.appendChild(text);
+        li.appendChild(who);
+
+        var spdCol = node('span', 'hidden sm:block text-right');
+        spdCol.appendChild(node('span', 'font-mono text-xs rounded px-1.5 py-0.5 ' + s.chip, 'SPD ' + s.spd));
+        li.appendChild(spdCol);
+        li.appendChild(node('span', 'hidden sm:block text-right font-mono tabular-nums text-sm text-zinc-200', s.odds));
+
+        var btn = node('button', null, 'Pick');
+        btn.type = 'button';
+        btn.setAttribute('data-pick', s.id);
+        btn.addEventListener('click', function () { pick(s.id); });
+        li.appendChild(btn);
+
+        list.appendChild(li);
+        rows[s.id] = { li: li, btn: btn };
+      });
+
+      function nameOf(id) {
+        for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i].name;
+        return '';
+      }
+
+      function pick(id) {
+        if (state === 'locked' || picked === id) return;
+        picked = id;
+        state = 'selected';
+        render();
+      }
+
+      runBtn.addEventListener('click', function () {
+        if (state !== 'selected') return;
+        state = 'locked';
+        render();
+      });
+
+      function render() {
+        card.setAttribute('data-state', state);
+        SNAILS.forEach(function (s) {
+          var r = rows[s.id];
+          var on = s.id === picked;
+          var dim = picked && !on ? ' opacity-60' : '';
+          r.li.className = ROW + (on ? ROW_ON : ROW_OFF) + dim;
+          if (on) r.li.setAttribute('data-selected', '');
+          else r.li.removeAttribute('data-selected');
+          r.btn.className = BTN + (on ? BTN_ON : BTN_OFF);
+          r.btn.textContent = on ? '✓ Picked' : 'Pick';
+          r.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+          r.btn.disabled = state === 'locked';
+        });
+
+        if (picked) {
+          confirmEl.textContent = state === 'locked' ? '🔒 ' + nameOf(picked) + ' locked in' : '✓ ' + nameOf(picked) + ' selected';
+          confirmEl.className = 'text-sm font-semibold text-violet-300';
+        } else {
+          confirmEl.textContent = '';
+          confirmEl.className = 'hidden text-sm font-semibold text-violet-300';
+        }
+
+        runBtn.disabled = state !== 'selected';
+        runBtn.textContent = state === 'locked' ? 'RACE LOCKED' : 'RUN RACE';
+        hint.className = state === 'waiting' ? 'text-xs text-zinc-500 text-center' : 'hidden text-xs text-zinc-500 text-center';
+      }
+
+      render();
+    })();
+  </script>
 
   <script>
     (function () {
