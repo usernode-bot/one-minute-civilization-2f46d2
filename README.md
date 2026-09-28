@@ -12,7 +12,7 @@ is the form players bet on.
   placeholder.
 - `GET /api/me` returns `{ username, wallet }` for the authenticated user
   (`wallet` is `req.user.usernode_pubkey`, or null).
-- No race logic, odds, randomness, scoring, leaderboard or faucet yet.
+- No race logic, odds, randomness, scoring or leaderboard yet.
 - No database tables yet.
 
 ## Stack
