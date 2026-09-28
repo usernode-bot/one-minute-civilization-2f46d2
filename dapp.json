@@ -96,6 +96,42 @@
       "name": "Race Card shows Lucas",
       "path": "/",
       "expectText": "Lucas"
+    },
+    {
+      "id": "home.derby-progress",
+      "name": "Race Card shows PICK A SNAIL with an eight-step progress strip",
+      "path": "/",
+      "expectSelector": "#race-card[data-stage=\"pick\"] #race-progress [data-step=\"1\"][data-step-state=\"current\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "public/derby-stories.js"
+      ]
+    },
+    {
+      "name": "Progress strip shows RACE 1 / 8",
+      "path": "/",
+      "expectText": "RACE 1 / 8"
+    },
+    {
+      "name": "Progress strip has eight steps",
+      "path": "/",
+      "expectSelector": "#race-progress [data-step=\"8\"][data-step-state=\"upcoming\"]"
+    },
+    {
+      "name": "Race Card shows the PICK A SNAIL state",
+      "path": "/",
+      "expectText": "PICK A SNAIL"
+    },
+    {
+      "name": "Daily Derby card lists all eight races",
+      "path": "/",
+      "expectSelector": "#derby-log [data-log-race=\"8\"][data-log-state=\"upcoming\"]"
+    },
+    {
+      "name": "Leaderboard sits below the Race Card",
+      "path": "/",
+      "expectSelector": "#race-card ~ #leaderboard"
     }
   ]
 }
