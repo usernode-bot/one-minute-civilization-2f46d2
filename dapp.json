@@ -129,9 +129,9 @@
       "expectSelector": "#derby-log [data-log-race=\"8\"][data-log-state=\"upcoming\"]"
     },
     {
-      "name": "Leaderboard sits below the Race Card",
+      "name": "Leaderboard sits above the Race Card",
       "path": "/",
-      "expectSelector": "#race-card ~ #leaderboard"
+      "expectSelector": "#leaderboard ~ #race-card"
     }
   ]
 }
