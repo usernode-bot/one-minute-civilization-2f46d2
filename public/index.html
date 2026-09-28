@@ -137,7 +137,7 @@
     <section id="race-card" data-state="waiting" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
       <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
 
-      <div>
+      <div id="race-field">
         <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_6rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
           <span class="font-medium">Snail</span>
           <span class="font-medium text-right">Speed</span>
@@ -145,6 +145,13 @@
           <span></span>
         </div>
         <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
+      </div>
+
+      <div id="race-track" data-phase="" class="hidden relative">
+        <ul id="race-lanes" class="flex flex-col gap-1.5"></ul>
+        <div id="race-countdown" class="hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none" aria-live="assertive">
+          <span id="race-countdown-text" class="font-mono text-5xl font-bold text-zinc-100"></span>
+        </div>
       </div>
 
       <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-3 text-center" aria-live="polite"></div>
@@ -155,7 +162,7 @@
         <p id="race-hint" class="text-xs text-zinc-500 text-center">Pick a snail to run the race.</p>
       </div>
 
-      <p id="race-done" class="hidden border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center">All 8 races run. A new slate starts at 00:00 UTC.</p>
+      <div id="derby-summary" class="hidden flex-col gap-4" aria-live="polite"></div>
     </section>
   </main>
 
@@ -175,6 +182,8 @@
       };
     })();
   </script>
+
+  <script src="/derby-stories.js"></script>
 
   <script>
     // Race Card and Daily Derby score. The server builds today's slate
@@ -207,7 +216,12 @@
       var runBtn = document.getElementById('run-race');
       var hint = document.getElementById('race-hint');
       var resultEl = document.getElementById('race-result');
-      var doneEl = document.getElementById('race-done');
+      var fieldEl = document.getElementById('race-field');
+      var trackEl = document.getElementById('race-track');
+      var lanesEl = document.getElementById('race-lanes');
+      var countEl = document.getElementById('race-countdown');
+      var countText = document.getElementById('race-countdown-text');
+      var summaryEl = document.getElementById('derby-summary');
       var scoreEl = document.querySelector('#daily-derby [data-score]');
       var logEl = document.getElementById('derby-log');
 
@@ -218,6 +232,17 @@
       var shown = 1;      // race number on the card
       var rows = {};
       var error = '';
+      var trackRace = 0;  // race the lanes were last drawn for
+      var lanes = {};
+      var runId = 0;      // bumps on every run, so stale timers do nothing
+
+      // Stories are cosmetic: they read settled results and never change them.
+      var STORIES = window.snailDerbyStories || null;
+      var NAMES = {};
+      SNAILS.forEach(function (s) { NAMES[s.id] = s.name; });
+      var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var TOKEN = 32;     // px, the w-8 snail token
+      var WIN_MS = 2000;  // winner's run; the rest finish 150 to 500 ms later
 
       function node(tag, cls, text) {
         var n = document.createElement(tag);
@@ -314,11 +339,147 @@
         if (window.snailDerby.loadBoard) window.snailDerby.loadBoard();
       }
 
+      // Lanes for race n, in the Race Card's order.
+      function buildTrack(n) {
+        lanesEl.textContent = '';
+        lanes = {};
+        SNAILS.forEach(function (s) {
+          var li = node('li', 'grid grid-cols-[4.5rem_1fr] items-center gap-2');
+          li.setAttribute('data-lane', s.id);
+          li.appendChild(node('span', 'text-xs font-semibold text-zinc-300 truncate', s.name));
+          var lane = node('div', 'relative h-10 rounded-lg border border-zinc-800 bg-zinc-950');
+          lane.appendChild(node('span', 'absolute inset-y-1 right-1 border-r-2 border-dashed border-zinc-600'));
+          var tok = node('span', 'absolute left-1 top-1 w-8 h-8 rounded-full flex items-center justify-center text-base ' + s.badge, s.emoji);
+          lane.appendChild(tok);
+          li.appendChild(lane);
+          lanesEl.appendChild(li);
+          lanes[s.id] = { li: li, lane: lane, tok: tok, anim: null };
+        });
+        trackRace = n;
+      }
+
+      function distance() {
+        var any = lanes[SNAILS[0].id];
+        return Math.max(0, any.lane.clientWidth - TOKEN - 8);
+      }
+
+      function placeAll(x) {
+        Object.keys(lanes).forEach(function (id) {
+          var l = lanes[id];
+          if (l.anim) { l.anim.cancel(); l.anim = null; }
+          l.tok.style.transform = 'translateX(' + x + 'px)';
+        });
+      }
+
+      function setPhase(phase) {
+        trackEl.setAttribute('data-phase', phase);
+      }
+
+      // 3, 2, 1, GO while the server settles the race. If it is slow, every
+      // snail creeps forward together (up to 15% of the track) so nobody
+      // leads before the result is known.
+      function countdown(id, onGo) {
+        var steps = ['3', '2', '1', 'GO!'];
+        var i = 0;
+        setPhase('countdown');
+        countEl.className = 'absolute inset-0 flex items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none';
+        (function tick() {
+          if (id !== runId) return;
+          if (i === steps.length) {
+            countEl.className = 'hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none';
+            onGo();
+            return;
+          }
+          countText.textContent = steps[i++];
+          setTimeout(tick, i === steps.length ? 350 : 500);
+        })();
+      }
+
+      // The real winner always crosses first: every snail uses the same
+      // easing and the winner has the shortest duration, so it leads at
+      // every moment of the run.
+      function finish(id, res, fromX, done) {
+        var order = STORIES
+          ? STORIES.finishOrder(derby, res.raceNumber, res.winner)
+          : [res.winner].concat(SNAILS.map(function (s) { return s.id; }).filter(function (x) { return x !== res.winner; }));
+        var to = distance();
+        setPhase('running');
+        var longest = 0;
+        order.forEach(function (sid, rank) {
+          var l = lanes[sid];
+          if (!l) return;
+          var ms = rank === 0 ? WIN_MS : WIN_MS + 150 + Math.round((rank - 1) * 87.5);
+          longest = Math.max(longest, ms);
+          l.tok.style.transform = 'translateX(' + to + 'px)';
+          if (!REDUCED && l.tok.animate) {
+            l.anim = l.tok.animate(
+              [{ transform: 'translateX(' + fromX + 'px)' }, { transform: 'translateX(' + to + 'px)' }],
+              { duration: ms, easing: 'cubic-bezier(0.45, 0.05, 0.4, 1)', fill: 'forwards' }
+            );
+          }
+        });
+        setTimeout(function () {
+          if (id !== runId) return;
+          Object.keys(lanes).forEach(function (sid) {
+            var l = lanes[sid];
+            var on = sid === res.winner;
+            l.lane.className = 'relative h-10 rounded-lg border ' + (on ? 'border-violet-500/70 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950');
+          });
+          setPhase('finished');
+          done();
+        }, REDUCED || !lanes[res.winner].tok.animate ? 300 : longest + 250);
+      }
+
       function run() {
         if (state !== 'selected' || !derby) return;
+        var id = ++runId;
+        var raceNo = shown;
         state = 'racing';
+        buildTrack(raceNo);
+        placeAll(0);
         render();
-        fetch('/api/derby/races/' + shown + '/run', {
+
+        var result = null;
+        var went = false;
+        var creepStart = 0;
+        var CREEP_MS = 1500;
+
+        function creepX() {
+          if (!creepStart) return 0;
+          return Math.min(1, (Date.now() - creepStart) / CREEP_MS) * 0.15 * distance();
+        }
+
+        function go() {
+          went = true;
+          if (result) return land();
+          // Still waiting on the server: creep together.
+          creepStart = Date.now();
+          if (REDUCED) return;
+          var to = 0.15 * distance();
+          Object.keys(lanes).forEach(function (sid) {
+            var l = lanes[sid];
+            l.tok.style.transform = 'translateX(' + to + 'px)';
+            if (l.tok.animate) {
+              l.anim = l.tok.animate(
+                [{ transform: 'translateX(0px)' }, { transform: 'translateX(' + to + 'px)' }],
+                { duration: CREEP_MS, easing: 'linear', fill: 'forwards' }
+              );
+            }
+          });
+        }
+
+        function land() {
+          var x = REDUCED ? 0 : creepX();
+          placeAll(x);
+          finish(id, result, x, function () {
+            state = 'result';
+            render();
+          });
+        }
+
+        countdown(id, go);
+
+        fetch('/api/derby/races/' + raceNo + '/run', {
           method: 'POST',
           headers: Object.assign({ 'content-type': 'application/json' }, window.snailDerby.authHeaders()),
           body: JSON.stringify({ derbyId: derby.derbyId, snailId: picked })
@@ -329,18 +490,23 @@
             return r.json();
           })
           .then(function (res) {
+            if (id !== runId) return;
             // A new UTC day or a race run elsewhere: reload today's slate.
-            if (res.stale) return load();
+            if (res.stale) { runId++; return load(); }
             var r = race(res.raceNumber);
             r.result = { pick: res.pick, winner: res.winner, won: res.won, nail: res.nail };
             derby.total = res.total;
             derby.currentRace = res.nextRace;
             picked = res.pick;
-            state = 'result';
-            render();
+            // The score is saved: the board can update while the snails run.
             refreshBoard();
+            result = res;
+            if (went) land();
           })
           .catch(function () {
+            if (id !== runId) return;
+            runId++;
+            placeAll(0);
             state = 'selected';
             error = "Couldn't run the race. Try again.";
             render();
@@ -359,6 +525,16 @@
           state = 'done';
         }
         render();
+        if (state === 'done') card.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' });
+      }
+
+      function reason(label, text, attr) {
+        var b = node('div', 'flex flex-col gap-1 text-left');
+        b.appendChild(node('span', 'text-xs font-semibold text-zinc-400', label));
+        var t = node('p', 'text-sm leading-relaxed text-zinc-200', text);
+        t.setAttribute(attr, '');
+        b.appendChild(t);
+        return b;
       }
 
       function renderResult(r) {
@@ -366,39 +542,100 @@
         var res = r.result;
         var win = snailOf(res.winner);
         var mine = snailOf(res.pick);
+        var story = STORIES ? STORIES.storiesFor(derby, NAMES)[r.raceNumber] : null;
         resultEl.setAttribute('data-outcome', res.won ? 'win' : 'miss');
 
         var wBlock = node('div', 'flex flex-col items-center gap-1');
-        wBlock.appendChild(node('span', 'text-xs font-bold tracking-widest ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), res.won ? '🏆 WINNER' : 'WINNER'));
-        var wName = node('span', 'flex items-center gap-2 text-lg font-bold text-zinc-100');
+        var wName = node('h3', 'flex items-center gap-2 text-lg font-bold text-zinc-100');
         wName.appendChild(node('span', 'w-8 h-8 rounded-full flex items-center justify-center text-base ' + win.badge, win.emoji));
-        wName.appendChild(node('span', null, win.name));
+        wName.appendChild(node('span', null, '🏆 ' + win.name.toUpperCase() + ' WINS!'));
         wBlock.appendChild(wName);
         resultEl.appendChild(wBlock);
+        if (story) resultEl.appendChild(reason('Why ' + win.name + ' won', story.winnerLine, 'data-why-winner'));
 
-        var pBlock = node('div', 'flex flex-col items-center gap-0.5');
-        pBlock.appendChild(node('span', 'text-xs text-zinc-500', 'Your pick'));
-        pBlock.appendChild(node('span', 'font-semibold text-zinc-200', mine.name));
+        var pBlock = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
+        var pHead = node('div', 'flex items-center justify-between gap-3');
+        var pWho = node('div', 'flex flex-col items-start gap-0.5');
+        pWho.appendChild(node('span', 'text-xs text-zinc-500', 'Your pick'));
+        pWho.appendChild(node('span', 'font-semibold text-zinc-200', mine.emoji + ' ' + mine.name));
+        pHead.appendChild(pWho);
+        var pOut = node('div', 'flex flex-col items-end gap-0.5');
+        pOut.appendChild(node('span', 'text-sm font-bold tracking-widest ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), res.won ? 'WIN' : 'MISS'));
+        pOut.appendChild(node('span', 'font-mono tabular-nums text-xl font-bold ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), '+' + res.nail + ' $NAIL'));
+        pHead.appendChild(pOut);
+        pBlock.appendChild(pHead);
+        if (story) {
+          pBlock.appendChild(reason(res.won ? 'Why your pick won' : 'Why ' + mine.name + ' lost', story.pickLine, 'data-why-pick'));
+        }
         resultEl.appendChild(pBlock);
-
-        var nBlock = node('div', 'flex flex-col items-center gap-0.5');
-        if (!res.won) nBlock.appendChild(node('span', 'text-sm font-bold tracking-widest text-zinc-400', 'MISS'));
-        nBlock.appendChild(node('span', 'font-mono tabular-nums text-2xl font-bold ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), '+' + res.nail + ' $NAIL'));
-        resultEl.appendChild(nBlock);
 
         var dBlock = node('div', 'flex flex-col items-center gap-0.5 border-t border-zinc-800 pt-3');
         dBlock.appendChild(node('span', 'text-xs text-zinc-500', 'Daily Score'));
         dBlock.appendChild(node('span', 'font-mono tabular-nums text-lg font-bold text-zinc-100', derby.total + ' $NAIL'));
         resultEl.appendChild(dBlock);
 
-        // After race 8 there is no next race: the done line shows instead.
-        if (derby.currentRace) {
-          var nextBtn = node('button', PRIMARY, 'NEXT RACE');
-          nextBtn.type = 'button';
-          nextBtn.id = 'next-race';
-          nextBtn.addEventListener('click', next);
-          resultEl.appendChild(nextBtn);
+        var nextBtn = node('button', PRIMARY, derby.currentRace ? 'NEXT RACE' : 'SEE YOUR DERBY');
+        nextBtn.type = 'button';
+        nextBtn.id = derby.currentRace ? 'next-race' : 'see-derby';
+        nextBtn.addEventListener('click', next);
+        resultEl.appendChild(nextBtn);
+      }
+
+      // Race 8 summary: picks per snail and a playful verdict. The verdict
+      // is a story; the score and the leaderboard come from the server.
+      function renderSummary() {
+        summaryEl.textContent = '';
+        var sum = STORIES ? STORIES.summaryFor(derby, NAMES) : null;
+
+        var top = node('div', 'grid grid-cols-2 gap-3');
+        var racesB = node('div', 'flex flex-col gap-0.5');
+        racesB.appendChild(node('span', 'text-xs text-zinc-500', 'Races'));
+        racesB.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-zinc-100', derby.racesPerDerby + ' / ' + derby.racesPerDerby + ' RACES'));
+        top.appendChild(racesB);
+        var scoreB = node('div', 'flex flex-col gap-0.5');
+        scoreB.appendChild(node('span', 'text-xs text-zinc-500', 'Your Score'));
+        scoreB.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-violet-300', derby.total + ' $NAIL'));
+        top.appendChild(scoreB);
+        summaryEl.appendChild(top);
+
+        if (sum) {
+          var picks = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
+          picks.appendChild(node('h3', 'text-sm font-semibold text-zinc-300', 'Your Derby'));
+          var ul = node('ul', 'flex flex-col');
+          SNAILS.forEach(function (s) {
+            var n = sum.counts[s.id] || 0;
+            var li = node('li', 'flex items-center justify-between gap-3 py-1');
+            li.setAttribute('data-summary-snail', s.id);
+            li.setAttribute('data-count', String(n));
+            var who = node('span', 'flex items-center gap-2 ' + (n ? 'text-zinc-100' : 'text-zinc-500'));
+            who.appendChild(node('span', 'w-7 h-7 rounded-full flex items-center justify-center text-sm ' + s.badge, s.emoji));
+            who.appendChild(node('span', 'font-medium', s.name));
+            li.appendChild(who);
+            li.appendChild(node('span', 'font-mono tabular-nums text-sm ' + (n ? 'text-zinc-100' : 'text-zinc-500'), n + (n === 1 ? ' pick' : ' picks')));
+            ul.appendChild(li);
+          });
+          picks.appendChild(ul);
+          summaryEl.appendChild(picks);
+
+          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
+          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
+          var label = node('p', 'text-lg font-bold text-violet-300', sum.label);
+          label.setAttribute('data-personality', sum.key);
+          pers.appendChild(label);
+          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
+          summaryEl.appendChild(pers);
         }
+
+        var btn = node('button', PRIMARY, 'VIEW DAILY LEADERBOARD');
+        btn.type = 'button';
+        btn.id = 'view-leaderboard';
+        btn.addEventListener('click', function () {
+          refreshBoard();
+          var lb = document.getElementById('leaderboard');
+          if (lb) lb.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' });
+        });
+        summaryEl.appendChild(btn);
+        summaryEl.appendChild(node('p', 'text-xs text-zinc-500 text-center', 'A new slate starts at 00:00 UTC.'));
       }
 
       function renderScore() {
@@ -431,7 +668,8 @@
       function render() {
         card.setAttribute('data-state', state);
         card.setAttribute('data-race', String(shown));
-        title.textContent = '🏁 Race ' + shown;
+        var complete = state === 'done' && derby && !derby.currentRace;
+        title.textContent = complete ? '🏁 DAILY DERBY COMPLETE' : '🏁 Race ' + shown;
         var r = race(shown);
         var locked = state === 'racing' || state === 'result' || state === 'done';
 
@@ -451,7 +689,10 @@
           row.btn.disabled = locked || !r;
         });
 
-        var showResult = (state === 'result' || state === 'done') && r && r.result;
+        fieldEl.className = state === 'racing' || state === 'result' || complete ? 'hidden' : '';
+        trackEl.className = (state === 'racing' || state === 'result') && trackRace === shown ? 'relative' : 'hidden relative';
+
+        var showResult = state === 'result' && r && r.result;
         if (showResult) renderResult(r);
         resultEl.className = showResult
           ? 'border-t border-zinc-800 pt-3 flex flex-col gap-3 text-center'
@@ -459,9 +700,8 @@
         controls.className = state === 'result' || state === 'done'
           ? 'hidden border-t border-zinc-800 pt-3 flex-col gap-2'
           : 'border-t border-zinc-800 pt-3 flex flex-col gap-2';
-        doneEl.className = state === 'done' || (state === 'result' && derby && !derby.currentRace)
-          ? 'border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center'
-          : 'hidden border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center';
+        if (complete) renderSummary();
+        summaryEl.className = complete ? 'flex flex-col gap-4' : 'hidden flex-col gap-4';
 
         if (picked && (state === 'selected' || state === 'racing')) {
           confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected';

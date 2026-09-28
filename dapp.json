@@ -73,13 +73,19 @@
       "impact": [
         "public/index.html",
         "server.js",
-        "nail-config.js"
+        "nail-config.js",
+        "public/derby-stories.js"
       ]
     },
     {
       "name": "Race Card RUN RACE button renders",
       "path": "/",
       "expectText": "RUN RACE"
+    },
+    {
+      "name": "Race Card shows Lucas",
+      "path": "/",
+      "expectText": "Lucas"
     }
   ]
 }
