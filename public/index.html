@@ -139,7 +139,6 @@
       <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
         <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
           <span data-progress-race class="text-zinc-100">RACE 1 / 8</span>
-          <span data-progress-nail class="text-violet-300">$NAIL 0</span>
         </div>
         <ol id="race-steps" class="grid grid-cols-8 gap-1" aria-label="Race progress"></ol>
       </div>
@@ -252,7 +251,6 @@
       var title = document.getElementById('race-title');
       var stageEl = document.getElementById('race-stage');
       var progRace = document.querySelector('#race-progress [data-progress-race]');
-      var progNail = document.querySelector('#race-progress [data-progress-nail]');
       var stepsEl = document.getElementById('race-steps');
       var list = document.getElementById('race-snails');
       var controls = document.getElementById('race-controls');
@@ -809,23 +807,9 @@
 
         var top = node('div', 'flex flex-col items-center gap-3 text-center rounded-xl border border-lime-400/40 bg-lime-500/10 px-3 py-4');
         top.appendChild(node('h2', 'text-xl font-bold tracking-wide text-lime-300', '🏁 DAILY DERBY COMPLETE'));
-        var nums = node('div', 'grid grid-cols-2 gap-3 w-full');
-        nums.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-zinc-100', derby.racesPerDerby + ' / ' + derby.racesPerDerby + ' RACES'));
-        nums.appendChild(node('span', 'font-mono tabular-nums text-base font-bold text-violet-300', '$NAIL ' + derby.total));
-        top.appendChild(nums);
         summaryEl.appendChild(top);
 
-        summaryEl.appendChild(shareBlock(sum));
-
         if (sum) {
-          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
-          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
-          var plabel = node('p', 'text-lg font-bold text-violet-300', sum.label);
-          plabel.setAttribute('data-personality', sum.key);
-          pers.appendChild(plabel);
-          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
-          summaryEl.appendChild(pers);
-
           var picks = node('div', 'flex flex-col gap-2 border-t border-zinc-800 pt-3');
           picks.appendChild(node('h3', 'text-sm font-semibold text-zinc-300', 'Your Derby'));
           var ul = node('ul', 'flex flex-col');
@@ -843,9 +827,19 @@
           });
           picks.appendChild(ul);
           summaryEl.appendChild(picks);
+
+          var pers = node('div', 'flex flex-col gap-1 border-t border-zinc-800 pt-3');
+          pers.appendChild(node('span', 'text-xs font-bold tracking-widest text-zinc-400', 'YOUR DERBY PERSONALITY'));
+          var plabel = node('p', 'text-lg font-bold text-violet-300', sum.label);
+          plabel.setAttribute('data-personality', sum.key);
+          pers.appendChild(plabel);
+          pers.appendChild(node('p', 'text-sm leading-relaxed text-zinc-200', sum.text));
+          summaryEl.appendChild(pers);
         }
 
         summaryEl.appendChild(node('p', 'text-xs text-zinc-500 text-center', 'A new slate starts at 00:00 UTC.'));
+
+        summaryEl.appendChild(shareBlock(sum));
       }
 
       // RACE N / 8, $NAIL and the eight steps at the top of the card.
@@ -853,7 +847,6 @@
         var total = perDerby();
         var complete = derby && !derby.currentRace;
         progRace.textContent = 'RACE ' + shown + ' / ' + total;
-        progNail.textContent = '$NAIL ' + (derby ? derby.total : 0);
         steps.forEach(function (li, i) {
           var n = i + 1;
           var r = race(n);
@@ -898,9 +891,9 @@
           scoreEl.textContent = 'RACE 1 / ' + RACES + ' · $NAIL 0';
           return;
         }
-        scoreEl.textContent = (derby.currentRace
-          ? 'RACE ' + derby.currentRace + ' / ' + derby.racesPerDerby
-          : 'DAILY DERBY COMPLETE') + ' · $NAIL ' + derby.total;
+        scoreEl.textContent = derby.currentRace
+          ? 'RACE ' + derby.currentRace + ' / ' + derby.racesPerDerby + ' · $NAIL ' + derby.total
+          : 'DAILY DERBY COMPLETE';
       }
 
       function render() {
