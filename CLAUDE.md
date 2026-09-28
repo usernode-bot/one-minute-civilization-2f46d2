@@ -58,22 +58,11 @@ this check for you and tells you when you are behind. It is silent offline, so
 its silence is not proof the checkout is current. Inside Homeroom's dev-chat
 the platform fixes the base commit, and none of this applies.
 
-## Blank slate
+## Snail Derby
 
-This app previously shipped a game called "One Minute Civilization"
-(a collective decision-making sim). That gameplay — its UI, client-side
-logic, and the `/api/world-state` / `/api/decision` routes — has been
-removed to make room for a different game. The app currently ships only
-a minimal placeholder screen ("New game coming soon") in
-`public/index.html`.
-
-Keep the `usernode-dev-console@1` forwarder `<script>` when rewriting the
-HTML — that block is platform infrastructure, not template content.
-
-When the user asks for the next real feature, build it in place of the
-placeholder screen rather than alongside it, and update this file's
-"About" section below to describe the new game once its concept is
-clear.
+This app previously shipped "One Minute Civilization"; that is gone and
+the app is now **Snail Derby**. Keep the `usernode-dev-console@1`
+forwarder `<script>` when rewriting the HTML.
 
 If a rule below this line conflicts with the hosted conventions, the
 hosted conventions win. This file is **app-specific** — write down
@@ -85,9 +74,10 @@ tables you've marked private), etc.
 
 ## About this app
 
-No product intent yet — the app is a clean base (auth, bridge, dev
-console, graceful shutdown) waiting on the next game concept. Nothing
-in this section should be assumed until a new game is actually defined.
+Snail Derby: six snails race for one shared pot with no house. Each
+snail's speed gene is fixed by a future block hash when a race starts and
+shown to everyone. The Daily Derby is a free, stake-less eight-race slate
+per wallet per day. Only the app shell exists so far (no race logic).
 
 ## App-specific conventions
 

@@ -63,15 +63,63 @@
     try { post('info', ['[dev-console ready]'], { kind: 'ready' }); } catch (_) {}
   })();
   </script>
-  <title>New game coming soon</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
+  <title>Snail Derby</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐌</text></svg>">
   <link rel="stylesheet" href="/tailwind.css">
   <script src="/usernode-bridge/v1/bridge.js"></script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen">
-  <main class="max-w-md mx-auto px-4 min-h-screen flex flex-col items-center justify-center text-center gap-2">
-    <h1 class="text-xl font-semibold">New game coming soon</h1>
-    <p class="text-sm text-zinc-400">This app is being rebuilt.</p>
+  <header class="border-b border-zinc-800">
+    <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      <h1 class="text-base font-bold tracking-wide whitespace-nowrap">🐌 SNAIL DERBY</h1>
+      <span id="wallet" class="text-xs font-mono text-zinc-400 truncate" title="">&nbsp;</span>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <p class="text-sm leading-relaxed text-zinc-300">
+      Six snails, one shared pot, no house. When a race starts, each snail's speed gene is fixed by a future block hash and shown to everyone. That's the form you bet on.
+    </p>
+
+    <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <div>
+        <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
+        <p class="text-xs text-violet-400 font-medium">Free · Provably Fair · Faucet</p>
+      </div>
+      <p class="text-sm leading-relaxed text-zinc-300">
+        A fresh eight-race slate every day, unique to your HomeRoom wallet. No stake. Read the form, pick your winners, and post your score.
+      </p>
+      <p class="text-sm font-medium text-zinc-100 border-t border-zinc-800 pt-3">Race 1 of 8 · Your score: 0 pts</p>
+    </section>
   </main>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var token = params.get('token');
+      if (token) {
+        try { sessionStorage.setItem('usernode-token', token); } catch (_) {}
+      } else {
+        try { token = sessionStorage.getItem('usernode-token'); } catch (_) {}
+      }
+
+      function truncate(addr) {
+        return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
+      }
+
+      var el = document.getElementById('wallet');
+      fetch('/api/me', { headers: token ? { 'x-usernode-token': token } : {} })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (me) {
+          if (me && me.wallet) {
+            el.textContent = truncate(me.wallet);
+            el.title = me.wallet;
+          } else {
+            el.textContent = 'No wallet linked';
+          }
+        })
+        .catch(function () { el.textContent = 'No wallet linked'; });
+    })();
+  </script>
 </body>
 </html>
