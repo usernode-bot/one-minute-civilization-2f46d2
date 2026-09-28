@@ -81,6 +81,35 @@
       Six snails, one shared pot, no house. When a race starts, each snail's speed gene is fixed by a future block hash and shown to everyone. That's the form you bet on.
     </p>
 
+    <section id="leaderboard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <div>
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
+          <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
+        </div>
+        <p class="text-xs text-zinc-400">Today's top free-play scores, every one replay-verified on-chain.</p>
+      </div>
+
+      <table id="leaderboard-table" class="hidden w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
+            <th class="py-2 pr-2 font-medium w-8">#</th>
+            <th class="py-2 pr-2 font-medium">Player</th>
+            <th class="py-2 pr-2 font-medium text-right">Points</th>
+            <th class="py-2 pr-2 font-medium">When</th>
+            <th class="py-2 font-medium">Daily Prize</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-rows"></tbody>
+      </table>
+
+      <ol id="leaderboard-list" class="hidden flex-col"></ol>
+
+      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No verified scores yet today.</p>
+
+      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">🏆 Top 5 each day win from the faucet prize pool, paid automatically to the leaders.</p>
+    </section>
+
     <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
       <div>
         <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
@@ -119,6 +148,129 @@
           }
         })
         .catch(function () { el.textContent = 'No wallet linked'; });
+
+      // Daily Derby Leaderboard. The server ranks, prices and marks the
+      // viewer's own row (isYou); this only renders what it sends.
+      var MEDALS = ['🥇', '🥈', '🥉'];
+      var MONTH = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+      var table = document.getElementById('leaderboard-table');
+      var rowsEl = document.getElementById('leaderboard-rows');
+      var listEl = document.getElementById('leaderboard-list');
+      var emptyEl = document.getElementById('leaderboard-empty');
+      var loaded = false;
+      var pollMs = 30000;
+      var timer = null;
+      var query = new URLSearchParams(location.search).get('demo') === '1' ? '?demo=1' : '';
+
+      function when(iso) {
+        var d = new Date(iso);
+        var hh = String(d.getUTCHours()).padStart(2, '0');
+        var mm = String(d.getUTCMinutes()).padStart(2, '0');
+        return MONTH.format(d) + ' · ' + hh + ':' + mm;
+      }
+
+      function node(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+      }
+
+      function youTag() {
+        return node('span', 'ml-2 text-[10px] font-bold text-violet-300 bg-violet-500/20 rounded px-1.5 py-0.5 align-middle', 'YOU');
+      }
+
+      function prize(e) {
+        return e.reward != null ? '🏆 ' + e.reward + ' HR' : '';
+      }
+
+      function mark(el, e) {
+        el.setAttribute('data-rank', String(e.rank));
+        if (e.isYou) el.setAttribute('data-you', '');
+      }
+
+      function render(board) {
+        var entries = board.entries || [];
+        rowsEl.textContent = '';
+        listEl.textContent = '';
+        emptyEl.textContent = 'No verified scores yet today.';
+        if (!entries.length) {
+          table.className = 'hidden w-full text-sm';
+          listEl.className = 'hidden flex-col';
+          emptyEl.className = 'text-sm text-zinc-400 py-2';
+          return;
+        }
+        emptyEl.className = 'hidden text-sm text-zinc-400 py-2';
+        table.className = 'hidden sm:table w-full text-sm';
+        listEl.className = 'flex sm:hidden flex-col';
+        entries.forEach(function (e) {
+          var you = e.isYou ? ' bg-violet-500/10' : '';
+
+          var tr = node('tr', 'border-b border-zinc-800/60 last:border-0' + you);
+          mark(tr, e);
+          tr.appendChild(node('td', 'py-2 pr-2 text-zinc-400 font-mono tabular-nums', String(e.rank)));
+          var player = node('td', 'py-2 pr-2 font-mono text-zinc-200', truncate(e.walletAddress));
+          player.title = e.walletAddress;
+          tr.appendChild(player);
+          var pts = node('td', 'py-2 pr-2 text-right font-mono tabular-nums font-bold text-zinc-100', String(e.totalPoints));
+          if (e.isYou) pts.appendChild(youTag());
+          tr.appendChild(pts);
+          tr.appendChild(node('td', 'py-2 pr-2 text-zinc-400 whitespace-nowrap', when(e.submittedAt)));
+          tr.appendChild(node('td', 'py-2 whitespace-nowrap text-zinc-200', prize(e)));
+          rowsEl.appendChild(tr);
+
+          var li = node('li', 'flex gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-zinc-800/60 last:border-0' + you);
+          mark(li, e);
+          li.appendChild(node('span', 'w-6 shrink-0 text-center font-mono tabular-nums text-zinc-400', MEDALS[e.rank - 1] || String(e.rank)));
+          var body = node('div', 'flex-1 min-w-0 flex flex-col gap-0.5');
+          var top = node('div', 'flex items-baseline justify-between gap-2');
+          var addr = node('span', 'font-mono text-sm text-zinc-200 truncate', truncate(e.walletAddress));
+          addr.title = e.walletAddress;
+          top.appendChild(addr);
+          var mpts = node('span', 'shrink-0 font-mono tabular-nums text-base font-bold text-zinc-100', e.totalPoints + ' pts');
+          if (e.isYou) mpts.appendChild(youTag());
+          top.appendChild(mpts);
+          var bottom = node('div', 'flex items-baseline justify-between gap-2 text-xs text-zinc-400');
+          bottom.appendChild(node('span', null, when(e.submittedAt)));
+          bottom.appendChild(node('span', 'shrink-0 text-zinc-300', prize(e)));
+          body.appendChild(top);
+          body.appendChild(bottom);
+          li.appendChild(body);
+          listEl.appendChild(li);
+        });
+      }
+
+      function loadBoard() {
+        return fetch('/api/leaderboard' + query, { headers: token ? { 'x-usernode-token': token } : {} })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (board) {
+            loaded = true;
+            if (board.pollMs) pollMs = board.pollMs;
+            render(board);
+          })
+          .catch(function () {
+            // Keep the last good board; only say so before the first load.
+            if (loaded) return;
+            table.className = 'hidden w-full text-sm';
+            listEl.className = 'hidden flex-col';
+            emptyEl.textContent = 'Leaderboard unavailable right now.';
+            emptyEl.className = 'text-sm text-zinc-400 py-2';
+          });
+      }
+
+      function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          if (document.hidden) return;
+          loadBoard().then(schedule);
+        }, pollMs);
+      }
+
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) loadBoard().then(schedule);
+      });
+
+      loadBoard().then(schedule);
     })();
   </script>
 </body>
