@@ -1,8 +1,11 @@
 # Snail Derby
 
-Six snails, one shared pot, no house. When a race starts, each snail's
-speed gene is fixed by a future block hash and shown to everyone, and that
-is the form players bet on.
+Six snails. Eight races. Pick your winners, earn $NAIL points, and discover
+what your choices say about you.
+
+The Daily Derby is free: 8 races, 6 snails. Pick a snail, watch the race,
+earn $NAIL points, and climb the leaderboard. $NAIL is an internal game
+points unit only.
 
 ## Current state (app shell)
 

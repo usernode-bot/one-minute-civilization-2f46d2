@@ -17,6 +17,16 @@
       ]
     },
     {
+      "name": "Daily Derby card shows the current description",
+      "path": "/",
+      "expectText": "Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard."
+    },
+    {
+      "name": "Daily Derby card shows Free, 8 Races, 6 Snails",
+      "path": "/",
+      "expectText": "Free · 8 Races · 6 Snails"
+    },
+    {
       "name": "Daily Derby card shows $NAIL score",
       "path": "/",
       "expectSelector": "#daily-derby [data-score]"

@@ -74,10 +74,10 @@ tables you've marked private), etc.
 
 ## About this app
 
-Snail Derby: six snails race for one shared pot with no house. Each
-snail's speed gene is fixed by a future block hash when a race starts and
-shown to everyone. The Daily Derby is a free, stake-less eight-race slate
-per wallet per day. Only the app shell exists so far (no race logic).
+Snail Derby: six snails, eight races. Players pick a snail, watch the
+race, earn $NAIL points, repeat for 8 races, and climb the Daily Derby
+leaderboard. $NAIL is an internal game-points unit only; never describe it
+as a token, currency or reward with value. The Daily Derby is free.
 
 ## App-specific conventions
 
