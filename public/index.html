@@ -113,28 +113,28 @@
     <section>
       <h2 class="text-sm font-medium text-zinc-500 mb-2 px-1">Current Event</h2>
       <div class="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 flex flex-col gap-2">
-        <h3 class="text-base font-semibold text-zinc-100">A Harsh Winter Approaches</h3>
+        <h3 class="text-base font-semibold text-zinc-100">This Year's Decision</h3>
         <p class="text-sm text-zinc-400 leading-relaxed">
-          Scouts report an early frost creeping down from the northern hills.
-          The granaries are half full, and the settlement must decide how to
-          respond before the cold sets in.
+          Decide how the settlement spends its effort this year. The group
+          gets one collective decision.
         </p>
       </div>
     </section>
 
     <section class="flex flex-col gap-2">
-      <button type="button" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100">
-        Ration the food stores
+      <button type="button" data-choice="produce_food" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:active:scale-100">
+        Produce Food
       </button>
-      <button type="button" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100">
-        Send hunters into the frost
+      <button type="button" data-choice="gather_wood" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:active:scale-100">
+        Gather Wood
       </button>
-      <button type="button" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100">
-        Trade wealth for grain
+      <button type="button" data-choice="research" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:active:scale-100">
+        Research
       </button>
-      <button type="button" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100">
-        Do nothing and hope
+      <button type="button" data-choice="build_housing" class="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-violet-500/50 active:scale-[0.98] transition-all p-4 text-left text-sm font-medium text-zinc-100 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:active:scale-100">
+        Build Housing
       </button>
+      <p class="hidden text-sm text-zinc-400 px-1" data-field="decision-status"></p>
     </section>
 
     <section>
@@ -175,6 +175,38 @@
   // every render just reflects whatever the server currently holds.
   (function () {
     var FIELDS = ['year', 'population', 'food', 'wealth', 'happiness', 'nature'];
+    var CHOICE_LABELS = {
+      produce_food: 'Produce Food',
+      gather_wood: 'Gather Wood',
+      research: 'Research',
+      build_housing: 'Build Housing',
+    };
+    var choiceButtons = document.querySelectorAll('[data-choice]');
+    var statusEl = document.querySelector('[data-field="decision-status"]');
+    var submitting = false;
+
+    function renderDecision(decision) {
+      var choiceId = decision && decision.choiceId;
+      choiceButtons.forEach(function (btn) {
+        var isSelected = btn.dataset.choice === choiceId;
+        btn.disabled = Boolean(choiceId);
+        // The base class list already carries `border-zinc-800`, which
+        // compiles later than `border-violet-500` in Tailwind's output, so a
+        // plain toggle of the latter always loses the cascade. `disabled`
+        // buttons are also dimmed by `disabled:opacity-40`, which would wash
+        // out the selected button too. The `!` (important) variants win
+        // both fights so the chosen button reads as clearly distinct.
+        btn.classList.toggle('!border-violet-500', isSelected);
+        btn.classList.toggle('!opacity-100', isSelected);
+      });
+      if (choiceId) {
+        statusEl.textContent = 'Choice: ' + (CHOICE_LABELS[choiceId] || choiceId);
+        statusEl.classList.remove('hidden');
+      } else {
+        statusEl.textContent = '';
+        statusEl.classList.add('hidden');
+      }
+    }
 
     async function refreshWorldState() {
       try {
@@ -185,10 +217,38 @@
           var el = document.querySelector('[data-field="' + field + '"]');
           if (el && state[field] !== undefined) el.textContent = state[field];
         });
+        renderDecision(state.decision);
       } catch (err) {
         console.warn('world state refresh failed', err);
       }
     }
+
+    async function submitDecision(choiceId) {
+      if (submitting) return;
+      submitting = true;
+      choiceButtons.forEach(function (btn) { btn.disabled = true; });
+      try {
+        var res = await fetch('/api/decision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ choice: choiceId }),
+        });
+        if (!res.ok && res.status !== 409) {
+          console.warn('decision submit failed', res.status);
+        }
+      } catch (err) {
+        console.warn('decision submit failed', err);
+      } finally {
+        submitting = false;
+        refreshWorldState();
+      }
+    }
+
+    choiceButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        submitDecision(btn.dataset.choice);
+      });
+    });
 
     refreshWorldState();
     setInterval(refreshWorldState, 3000);

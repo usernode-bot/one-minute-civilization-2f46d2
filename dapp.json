@@ -14,6 +14,12 @@
       "path": "/",
       "expectSelector": "[data-field=\"population\"]",
       "expectText": "Population"
+    },
+    {
+      "name": "Current Event shows decision choices",
+      "path": "/",
+      "expectSelector": "[data-choice=\"produce_food\"]",
+      "expectText": "Produce Food"
     }
   ]
 }

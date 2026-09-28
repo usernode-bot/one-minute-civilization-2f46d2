@@ -26,7 +26,12 @@ const APP_AUDIENCE = process.env.USERNODE_APP_ID
 // `/api/world-state` holds no per-user data - it's the one shared
 // civilization every visitor watches - so it's public rather than gated,
 // matching this step's "no authentication yet" scope.
-const PUBLIC_API_PATHS = new Set(['/health', '/api/world-state']);
+// `/api/decision` submits the group's single collective choice for the
+// round. Like `/api/world-state` it carries no per-user data - it's one
+// shared civilization's decision, not anything scoped to a person - and
+// this app has no auth flow wired up yet, so gating it would make it
+// uncallable rather than safer. Revisit once real multiplayer/auth lands.
+const PUBLIC_API_PATHS = new Set(['/health', '/api/world-state', '/api/decision']);
 
 app.use(express.json());
 
@@ -114,6 +119,14 @@ const worldState = {
   wealth: 100,
   happiness: 100,
   nature: 100,
+  // Tracks whether the group has already made its one decision for the
+  // current round. There is no year-advance mechanic yet, so today this
+  // stays set once made until the process restarts; a future year-advance
+  // feature should reset it back to nulls when a new round starts.
+  decision: {
+    choiceId: null,
+    madeAt: null,
+  },
 };
 
 // The one path by which any World State field may change. Decision
@@ -136,9 +149,39 @@ function updateWorldState(partialChanges) {
 // mutation path works before any real decision or event calls it.
 updateWorldState({});
 
+// The four choices for the current round's Current Event, and their
+// effects. This is the single source of truth for what each choice does -
+// tweak an entry here to change the game balance, nothing else to touch.
+const CHOICES = {
+  produce_food: { label: 'Produce Food', effects: { food: 10 } },
+  gather_wood: { label: 'Gather Wood', effects: { wealth: 5 } },
+  research: { label: 'Research', effects: { wealth: 3, happiness: 2 } },
+  build_housing: { label: 'Build Housing', effects: { population: 5, wealth: -5 } },
+};
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.get('/api/world-state', (_req, res) => res.json(worldState));
+
+app.post('/api/decision', (req, res) => {
+  const choiceId = req.body && req.body.choice;
+  const choice = CHOICES[choiceId];
+  if (!choice) {
+    return res.status(400).json({ error: 'Unknown choice' });
+  }
+  if (worldState.decision.choiceId) {
+    return res.status(409).json({ error: 'A decision has already been made this round', worldState });
+  }
+
+  const partialChanges = {};
+  for (const [field, delta] of Object.entries(choice.effects)) {
+    partialChanges[field] = worldState[field] + delta;
+  }
+  partialChanges.decision = { choiceId, madeAt: new Date().toISOString() };
+  updateWorldState(partialChanges);
+
+  res.json(worldState);
+});
 
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
