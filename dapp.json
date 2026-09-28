@@ -32,6 +32,21 @@
       "name": "Daily Derby Leaderboard empty state",
       "path": "/",
       "expectText": "No verified scores yet today."
+    },
+    {
+      "id": "home.race-card",
+      "name": "Race Card shows six snails waiting for a pick",
+      "path": "/",
+      "expectSelector": "#race-card[data-state=\"waiting\"] [data-snail=\"cycle_o\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Race Card RUN RACE button renders",
+      "path": "/",
+      "expectText": "RUN RACE"
     }
   ]
 }
