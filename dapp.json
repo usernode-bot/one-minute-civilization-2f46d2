@@ -15,6 +15,23 @@
         "public/index.html",
         "server.js"
       ]
+    },
+    {
+      "id": "home.leaderboard",
+      "name": "Daily Derby Leaderboard shows verified scores",
+      "path": "/?demo=1",
+      "expectSelector": "#leaderboard [data-rank=\"6\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "server.js",
+        "leaderboard-config.js"
+      ]
+    },
+    {
+      "name": "Daily Derby Leaderboard empty state",
+      "path": "/",
+      "expectText": "No verified scores yet today."
     }
   ]
 }

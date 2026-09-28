@@ -2,12 +2,23 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
+const {
+  DAILY_PRIZES_HR,
+  LEADERBOARD_SIZE,
+  POLL_MS,
+} = require('./leaderboard-config');
 
 const app = express();
 const DRAIN_MS = 3000;
 let shuttingDown = false;
 const port = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// Gates seed DATA only, never a feature or code path.
+const IS_STAGING = process.env.USERNODE_ENV === 'staging';
+
+// The derby the staging demo reads behind ?demo=1. Never a real day.
+const DEMO_DERBY_ID = 'staging-demo';
 
 // The platform signs user-identity tokens with an RSA private key it never
 // shares. Containers get only the PUBLIC half, so this app can verify who a
@@ -116,6 +127,62 @@ app.get('/api/me', (req, res) => {
   });
 });
 
+// Today's Daily Derby Leaderboard. The derby day is a UTC date and each day
+// is its own derby, so scores never mix between days. Only verified entries
+// are listed; rank and reward are computed here on read, never stored.
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    let derbyId = 'daily-' + date;
+    let derbyDate = date;
+    if (IS_STAGING && req.query.demo === '1') {
+      const demo = await pool.query(
+        `SELECT to_char(derby_date, 'YYYY-MM-DD') AS date
+           FROM daily_derbies WHERE derby_id = $1`,
+        [DEMO_DERBY_ID]
+      );
+      if (demo.rows.length) {
+        derbyId = DEMO_DERBY_ID;
+        derbyDate = demo.rows[0].date;
+      }
+    }
+    if (derbyId !== DEMO_DERBY_ID) {
+      await pool.query(
+        `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, $2)
+         ON CONFLICT (derby_id) DO NOTHING`,
+        [derbyId, derbyDate]
+      );
+    }
+    const { rows } = await pool.query(
+      `SELECT wallet_address, total_points, submitted_at
+         FROM leaderboard_entries
+        WHERE derby_id = $1 AND verification_status = 'verified'
+        ORDER BY total_points DESC, verified_at ASC, wallet_address ASC
+        LIMIT $2`,
+      [derbyId, LEADERBOARD_SIZE]
+    );
+    const me = req.user.usernode_pubkey || null;
+    res.json({
+      derbyId,
+      date: derbyDate,
+      pollMs: POLL_MS,
+      prizesHr: DAILY_PRIZES_HR,
+      entries: rows.map((r, i) => ({
+        rank: i + 1,
+        walletAddress: r.wallet_address,
+        totalPoints: r.total_points,
+        submittedAt: r.submitted_at,
+        reward: i < DAILY_PRIZES_HR.length ? DAILY_PRIZES_HR[i] : null,
+        verificationStatus: 'verified',
+        isYou: !!me && r.wallet_address === me,
+      })),
+    });
+  } catch (err) {
+    console.warn('leaderboard query failed: ' + err.message);
+    res.status(500).json({ error: 'Leaderboard unavailable' });
+  }
+});
+
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
 // /favicon.ico (older browsers, direct visits) doesn't fall through to
@@ -161,7 +228,82 @@ app.get('*', (req, res) => {
 });
 
 
+// Schema, applied idempotently on every boot. Both tables are public: the
+// leaderboard is meant to be seen and holds only wallet addresses and points.
+async function migrate() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS daily_derbies (
+      derby_id TEXT PRIMARY KEY,
+      derby_date DATE NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS daily_derbies_date_idx ON daily_derbies (derby_date)'
+  );
+  // One entry per HomeRoom wallet per derby. The wallet address IS the
+  // player; there is no separate player table.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS leaderboard_entries (
+      derby_id TEXT NOT NULL REFERENCES daily_derbies(derby_id),
+      wallet_address TEXT NOT NULL,
+      total_points INTEGER NOT NULL,
+      submitted_at TIMESTAMPTZ NOT NULL,
+      verification_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (verification_status IN ('pending', 'verified', 'rejected')),
+      verified_at TIMESTAMPTZ,
+      PRIMARY KEY (derby_id, wallet_address),
+      CHECK (verification_status <> 'verified' OR verified_at IS NOT NULL)
+    )`);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS leaderboard_entries_rank_idx
+      ON leaderboard_entries
+      (derby_id, verification_status, total_points DESC, verified_at ASC)`);
+}
+
+// Staging only: a fixed demo derby read behind ?demo=1. Fake ut1-style
+// wallets, never the visitor. The pending and rejected rows carry the
+// highest points on purpose, so a broken filter is obvious at a glance.
+async function seedStaging() {
+  await pool.query(
+    `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, '2026-09-28')
+     ON CONFLICT (derby_id) DO NOTHING`,
+    [DEMO_DERBY_ID]
+  );
+  const wallet = n => 'ut1stagingdemosnail' + String(n).padStart(21, '0');
+  const rows = [
+    [1, 2431, '03:22', 'verified'],
+    [2, 2298, '04:11', 'verified'],
+    [3, 2187, '05:43', 'verified'],
+    [4, 2051, '06:18', 'verified'],
+    [5, 2051, '06:40', 'verified'],
+    [6, 1987, '07:02', 'verified'],
+    [7, 9999, '08:15', 'pending'],
+    [8, 8888, '08:30', 'rejected'],
+  ];
+  for (const [n, points, time, status] of rows) {
+    const at = '2026-09-28T' + time + ':00Z';
+    await pool.query(
+      `INSERT INTO leaderboard_entries
+         (derby_id, wallet_address, total_points, submitted_at,
+          verification_status, verified_at)
+       VALUES ($1, $2, $3, $4, $5,
+               CASE WHEN $5 = 'verified' THEN $4::timestamptz + interval '1 minute' END)
+       ON CONFLICT (derby_id, wallet_address) DO NOTHING`,
+      [DEMO_DERBY_ID, wallet(n), points, at, status]
+    );
+  }
+}
+
 async function start() {
+  // A missing database (a plain local run) should not take the page down:
+  // log it and serve, and the leaderboard shows its unavailable state.
+  try {
+    await migrate();
+    if (IS_STAGING) await seedStaging();
+  } catch (err) {
+    console.warn('[db] migration failed: ' + err.message);
+  }
+
   const server = app.listen(port, () => console.log(`Listening on :${port}`));
   // Let Envoy retire idle upstream connections at 60s, with a 15s margin.
   server.keepAliveTimeout = 75_000;
