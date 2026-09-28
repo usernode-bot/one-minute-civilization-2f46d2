@@ -17,30 +17,48 @@
       ]
     },
     {
+      "name": "Daily Derby card shows $NAIL score",
+      "path": "/",
+      "expectSelector": "#daily-derby [data-score]"
+    },
+    {
       "id": "home.leaderboard",
-      "name": "Daily Derby Leaderboard shows verified scores",
+      "name": "Daily Derby Leaderboard shows verified $NAIL scores",
       "path": "/?demo=1",
-      "expectSelector": "#leaderboard [data-rank=\"6\"]",
+      "expectSelector": "#leaderboard [data-rank=\"7\"]",
       "visual": true,
       "impact": [
         "public/index.html",
         "server.js",
-        "leaderboard-config.js"
+        "leaderboard-config.js",
+        "nail-config.js"
       ]
     },
     {
-      "name": "Daily Derby Leaderboard empty state",
+      "name": "Leaderboard shows a fallback player by username",
+      "path": "/?demo=1",
+      "expectText": "@staging-demo-snail"
+    },
+    {
+      "name": "Leaderboard is a game score only",
       "path": "/",
-      "expectText": "No verified scores yet today."
+      "expectText": "$NAIL is a game score only"
+    },
+    {
+      "name": "Leaderboard loads",
+      "path": "/",
+      "expectSelector": "#leaderboard[data-loaded]"
     },
     {
       "id": "home.race-card",
       "name": "Race Card shows six snails waiting for a pick",
       "path": "/",
-      "expectSelector": "#race-card[data-state=\"waiting\"] [data-snail=\"cycle_o\"]",
+      "expectSelector": "#race-card[data-race=\"1\"][data-state=\"waiting\"] [data-snail=\"cycle_o\"]",
       "visual": true,
       "impact": [
-        "public/index.html"
+        "public/index.html",
+        "server.js",
+        "nail-config.js"
       ]
     },
     {

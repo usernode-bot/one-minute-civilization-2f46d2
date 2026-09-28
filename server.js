@@ -2,11 +2,15 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { LEADERBOARD_SIZE, POLL_MS } = require('./leaderboard-config');
 const {
-  DAILY_PRIZES_HR,
-  LEADERBOARD_SIZE,
-  POLL_MS,
-} = require('./leaderboard-config');
+  RACES_PER_DERBY,
+  LOSS_POINTS,
+  SPD_MIN,
+  SPD_MAX,
+  nailForOdds,
+} = require('./nail-config');
 
 const app = express();
 const DRAIN_MS = 3000;
@@ -19,6 +23,50 @@ const IS_STAGING = process.env.USERNODE_ENV === 'staging';
 
 // The derby the staging demo reads behind ?demo=1. Never a real day.
 const DEMO_DERBY_ID = 'staging-demo';
+
+// The six snails, in the Race Card's order. The page's SNAILS ids must match.
+const SNAIL_IDS = ['cycle_o', 'drea', 'evan', 'lucas', 'scradio', 'snait'];
+
+// The derby day is a UTC date, computed here and never taken from a client.
+function todayDerby() {
+  const date = new Date().toISOString().slice(0, 10);
+  return { derbyId: 'daily-' + date, date };
+}
+
+// Who is playing. The linked HomeRoom wallet is the player; with no wallet
+// linked, the platform user id stands in. There is no player table.
+function playerKey(req) {
+  return req.user.usernode_pubkey || 'user:' + req.user.id;
+}
+
+// One race's field: a speed gene per snail and fair odds with no house.
+// A snail's chance is spd / sum(spd), so its odds are sum / spd, kept in
+// integer tenths (9.3x is 93).
+function makeSlate() {
+  const spds = SNAIL_IDS.map(() => crypto.randomInt(SPD_MIN, SPD_MAX + 1));
+  const sum = spds.reduce((a, b) => a + b, 0);
+  return SNAIL_IDS.map((id, i) => ({
+    id,
+    spd: spds[i],
+    oddsTenths: Math.round((sum * 10) / spds[i]),
+  }));
+}
+
+// Draw the winner weighted by speed. Integers only, drawn at run time and
+// never stored ahead of the pick.
+function drawWinner(snails) {
+  const sum = snails.reduce((a, s) => a + s.spd, 0);
+  let roll = crypto.randomInt(sum);
+  for (const s of snails) {
+    if (roll < s.spd) return s.id;
+    roll -= s.spd;
+  }
+  return snails[snails.length - 1].id;
+}
+
+function formatOdds(tenths) {
+  return (tenths / 10).toFixed(1) + '\u00d7';
+}
 
 // The platform signs user-identity tokens with an RSA private key it never
 // shares. Containers get only the PUBLIC half, so this app can verify who a
@@ -127,13 +175,178 @@ app.get('/api/me', (req, res) => {
   });
 });
 
-// Today's Daily Derby Leaderboard. The derby day is a UTC date and each day
-// is its own derby, so scores never mix between days. Only verified entries
-// are listed; rank and reward are computed here on read, never stored.
+function ensureDerby(db, derbyId, date) {
+  return db.query(
+    `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, $2)
+     ON CONFLICT (derby_id) DO NOTHING`,
+    [derbyId, date]
+  );
+}
+
+function raceView(r) {
+  return {
+    raceNumber: r.race_number,
+    snails: r.snails.map(s => ({
+      id: s.id,
+      spd: s.spd,
+      odds: formatOdds(s.oddsTenths),
+      nail: nailForOdds(s.oddsTenths),
+    })),
+    result: r.resolved_at
+      ? {
+          pick: r.picked_snail,
+          winner: r.winner_snail,
+          won: r.picked_snail === r.winner_snail,
+          nail: r.nail_awarded,
+        }
+      : null,
+  };
+}
+
+// Today's slate for the signed-in player. The eight races are created on
+// first read (safe under concurrent tabs) and read back; unresolved races
+// have no winner yet, so nothing here can leak one.
+app.get('/api/derby', async (req, res) => {
+  try {
+    const { derbyId, date } = todayDerby();
+    const key = playerKey(req);
+    await ensureDerby(pool, derbyId, date);
+    for (let n = 1; n <= RACES_PER_DERBY; n++) {
+      await pool.query(
+        `INSERT INTO derby_races (derby_id, player_key, race_number, snails)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (derby_id, player_key, race_number) DO NOTHING`,
+        [derbyId, key, n, JSON.stringify(makeSlate())]
+      );
+    }
+    const { rows } = await pool.query(
+      `SELECT * FROM derby_races WHERE derby_id = $1 AND player_key = $2
+        ORDER BY race_number`,
+      [derbyId, key]
+    );
+    const current = rows.find(r => !r.resolved_at);
+    res.json({
+      derbyId,
+      date,
+      racesPerDerby: RACES_PER_DERBY,
+      total: rows.reduce((a, r) => a + (r.nail_awarded || 0), 0),
+      currentRace: current ? current.race_number : null,
+      races: rows.map(raceView),
+    });
+  } catch (err) {
+    console.warn('derby query failed: ' + err.message);
+    res.status(500).json({ error: 'Races unavailable' });
+  }
+});
+
+// Pick and run one race in a single request. The server draws the winner,
+// awards $NAIL by the pick's displayed odds and writes the player's running
+// total to today's leaderboard. A resolved race is never run again: a
+// repeat returns the stored result and awards nothing.
+app.post('/api/derby/races/:n/run', async (req, res) => {
+  const n = Number(req.params.n);
+  const { derbyId, snailId } = req.body || {};
+  const today = todayDerby();
+  if (derbyId !== today.derbyId) {
+    return res.status(409).json({ error: 'new_day' });
+  }
+  if (!Number.isInteger(n) || n < 1 || n > RACES_PER_DERBY) {
+    return res.status(400).json({ error: 'bad_race' });
+  }
+  if (!SNAIL_IDS.includes(snailId)) {
+    return res.status(400).json({ error: 'bad_snail' });
+  }
+  const key = playerKey(req);
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `SELECT * FROM derby_races WHERE derby_id = $1 AND player_key = $2
+        ORDER BY race_number FOR UPDATE`,
+      [derbyId, key]
+    );
+    const race = rows.find(r => r.race_number === n);
+    if (!race) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'no_slate' });
+    }
+    const sumOf = list => list.reduce((a, r) => a + (r.nail_awarded || 0), 0);
+    if (race.resolved_at) {
+      await client.query('ROLLBACK');
+      const next = rows.find(r => !r.resolved_at);
+      return res.json({
+        raceNumber: n,
+        pick: race.picked_snail,
+        winner: race.winner_snail,
+        won: race.picked_snail === race.winner_snail,
+        nail: race.nail_awarded,
+        total: sumOf(rows),
+        nextRace: next ? next.race_number : null,
+        alreadyResolved: true,
+      });
+    }
+    const current = rows.find(r => !r.resolved_at);
+    if (current.race_number !== n) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'out_of_order', currentRace: current.race_number });
+    }
+    const winner = drawWinner(race.snails);
+    const picked = race.snails.find(s => s.id === snailId);
+    const nail = winner === snailId ? nailForOdds(picked.oddsTenths) : LOSS_POINTS;
+    const upd = await client.query(
+      `UPDATE derby_races
+          SET picked_snail = $4, winner_snail = $5, nail_awarded = $6,
+              resolved_at = now()
+        WHERE derby_id = $1 AND player_key = $2 AND race_number = $3
+          AND resolved_at IS NULL`,
+      [derbyId, key, n, snailId, winner, nail]
+    );
+    if (upd.rowCount !== 1) throw new Error('race already resolved');
+    race.nail_awarded = nail;
+    race.resolved_at = new Date();
+    const total = sumOf(rows);
+    await client.query(
+      `INSERT INTO leaderboard_entries
+         (derby_id, wallet_address, username, total_points, submitted_at,
+          verification_status, verified_at)
+       VALUES ($1, $2, $3, $4, now(), 'verified', now())
+       ON CONFLICT (derby_id, wallet_address) DO UPDATE
+         SET total_points = EXCLUDED.total_points,
+             username = EXCLUDED.username,
+             submitted_at = EXCLUDED.submitted_at,
+             verification_status = 'verified',
+             verified_at = EXCLUDED.verified_at`,
+      [derbyId, key, req.user.username || null, total]
+    );
+    await client.query('COMMIT');
+    const next = rows.find(r => !r.resolved_at);
+    res.json({
+      raceNumber: n,
+      pick: snailId,
+      winner,
+      won: winner === snailId,
+      nail,
+      total,
+      nextRace: next ? next.race_number : null,
+      alreadyResolved: false,
+    });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.warn('race run failed: ' + err.message);
+    res.status(500).json({ error: 'Race failed' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// Today's Daily Derby Leaderboard of $NAIL. The derby day is a UTC date and
+// each day is its own derby, so scores never mix between days. Only
+// verified entries are listed; rank is computed here on read, never stored.
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const date = new Date().toISOString().slice(0, 10);
-    let derbyId = 'daily-' + date;
+    const { derbyId: todayId, date } = todayDerby();
+    let derbyId = todayId;
     let derbyDate = date;
     if (IS_STAGING && req.query.demo === '1') {
       const demo = await pool.query(
@@ -146,33 +359,26 @@ app.get('/api/leaderboard', async (req, res) => {
         derbyDate = demo.rows[0].date;
       }
     }
-    if (derbyId !== DEMO_DERBY_ID) {
-      await pool.query(
-        `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, $2)
-         ON CONFLICT (derby_id) DO NOTHING`,
-        [derbyId, derbyDate]
-      );
-    }
+    if (derbyId !== DEMO_DERBY_ID) await ensureDerby(pool, derbyId, derbyDate);
     const { rows } = await pool.query(
-      `SELECT wallet_address, total_points, submitted_at
+      `SELECT wallet_address, username, total_points, submitted_at
          FROM leaderboard_entries
         WHERE derby_id = $1 AND verification_status = 'verified'
         ORDER BY total_points DESC, verified_at ASC, wallet_address ASC
         LIMIT $2`,
       [derbyId, LEADERBOARD_SIZE]
     );
-    const me = req.user.usernode_pubkey || null;
+    const me = playerKey(req);
     res.json({
       derbyId,
       date: derbyDate,
       pollMs: POLL_MS,
-      prizesHr: DAILY_PRIZES_HR,
       entries: rows.map((r, i) => ({
         rank: i + 1,
         walletAddress: r.wallet_address,
+        username: r.username || null,
         totalPoints: r.total_points,
         submittedAt: r.submitted_at,
-        reward: i < DAILY_PRIZES_HR.length ? DAILY_PRIZES_HR[i] : null,
         verificationStatus: 'verified',
         isYou: !!me && r.wallet_address === me,
       })),
@@ -254,15 +460,44 @@ async function migrate() {
       PRIMARY KEY (derby_id, wallet_address),
       CHECK (verification_status <> 'verified' OR verified_at IS NOT NULL)
     )`);
+  // wallet_address holds the player key: the HomeRoom wallet, or
+  // 'user:<platform id>' when none is linked. username is for display only.
+  await pool.query(
+    'ALTER TABLE leaderboard_entries ADD COLUMN IF NOT EXISTS username TEXT'
+  );
   await pool.query(`
     CREATE INDEX IF NOT EXISTS leaderboard_entries_rank_idx
       ON leaderboard_entries
       (derby_id, verification_status, total_points DESC, verified_at ASC)`);
+  // One row per race per player per derby. The primary key plus the
+  // resolved_at IS NULL guard on update is what stops a race being replayed.
+  // snails is the race's field: [{ id, spd, oddsTenths }] in roster order.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS derby_races (
+      derby_id TEXT NOT NULL REFERENCES daily_derbies(derby_id),
+      player_key TEXT NOT NULL,
+      race_number SMALLINT NOT NULL CHECK (race_number BETWEEN 1 AND 8),
+      snails JSONB NOT NULL,
+      picked_snail TEXT,
+      winner_snail TEXT,
+      nail_awarded INTEGER,
+      resolved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (derby_id, player_key, race_number),
+      CHECK (
+        (picked_snail IS NULL AND winner_snail IS NULL
+          AND nail_awarded IS NULL AND resolved_at IS NULL)
+        OR (picked_snail IS NOT NULL AND winner_snail IS NOT NULL
+          AND nail_awarded IS NOT NULL AND resolved_at IS NOT NULL)
+      )
+    )`);
 }
 
 // Staging only: a fixed demo derby read behind ?demo=1. Fake ut1-style
-// wallets, never the visitor. The pending and rejected rows carry the
-// highest points on purpose, so a broken filter is obvious at a glance.
+// wallets plus one fake no-wallet player, never the visitor. The pending and
+// rejected rows carry the highest points on purpose, so a broken filter is
+// obvious at a glance. Races are never seeded: the race flow starts empty
+// on staging exactly as in production.
 async function seedStaging() {
   await pool.query(
     `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, '2026-09-28')
@@ -271,25 +506,33 @@ async function seedStaging() {
   );
   const wallet = n => 'ut1stagingdemosnail' + String(n).padStart(21, '0');
   const rows = [
-    [1, 2431, '03:22', 'verified'],
-    [2, 2298, '04:11', 'verified'],
-    [3, 2187, '05:43', 'verified'],
-    [4, 2051, '06:18', 'verified'],
-    [5, 2051, '06:40', 'verified'],
-    [6, 1987, '07:02', 'verified'],
-    [7, 9999, '08:15', 'pending'],
-    [8, 8888, '08:30', 'rejected'],
+    [wallet(1), null, 1650, '03:22', 'verified'],
+    [wallet(2), null, 1400, '04:11', 'verified'],
+    [wallet(3), null, 1250, '05:43', 'verified'],
+    [wallet(4), null, 1100, '06:18', 'verified'],
+    [wallet(5), null, 1100, '06:40', 'verified'],
+    [wallet(6), null, 850, '07:02', 'verified'],
+    ['user:900001', 'staging-demo-snail', 600, '07:30', 'verified'],
+    [wallet(7), null, 9999, '08:15', 'pending'],
+    [wallet(8), null, 8888, '08:30', 'rejected'],
   ];
-  for (const [n, points, time, status] of rows) {
+  // DO UPDATE, not DO NOTHING: these fixed demo rows replace older demo
+  // values already sitting in a staging database.
+  for (const [key, username, points, time, status] of rows) {
     const at = '2026-09-28T' + time + ':00Z';
     await pool.query(
       `INSERT INTO leaderboard_entries
-         (derby_id, wallet_address, total_points, submitted_at,
+         (derby_id, wallet_address, username, total_points, submitted_at,
           verification_status, verified_at)
-       VALUES ($1, $2, $3, $4, $5,
-               CASE WHEN $5 = 'verified' THEN $4::timestamptz + interval '1 minute' END)
-       ON CONFLICT (derby_id, wallet_address) DO NOTHING`,
-      [DEMO_DERBY_ID, wallet(n), points, at, status]
+       VALUES ($1, $2, $3, $4, $5, $6,
+               CASE WHEN $6 = 'verified' THEN $5::timestamptz + interval '1 minute' END)
+       ON CONFLICT (derby_id, wallet_address) DO UPDATE
+         SET username = EXCLUDED.username,
+             total_points = EXCLUDED.total_points,
+             submitted_at = EXCLUDED.submitted_at,
+             verification_status = EXCLUDED.verification_status,
+             verified_at = EXCLUDED.verified_at`,
+      [DEMO_DERBY_ID, key, username, points, at, status]
     );
   }
 }

@@ -87,7 +87,7 @@
           <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
           <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
         </div>
-        <p class="text-xs text-zinc-400">Today's top free-play scores, every one replay-verified on-chain.</p>
+        <p class="text-xs text-zinc-400">Today's top $NAIL scores. Every race is settled by the server.</p>
       </div>
 
       <table id="leaderboard-table" class="hidden w-full text-sm">
@@ -95,9 +95,8 @@
           <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
             <th class="py-2 pr-2 font-medium w-8">#</th>
             <th class="py-2 pr-2 font-medium">Player</th>
-            <th class="py-2 pr-2 font-medium text-right">Points</th>
-            <th class="py-2 pr-2 font-medium">When</th>
-            <th class="py-2 font-medium">Daily Prize</th>
+            <th class="py-2 pr-2 font-medium text-right">$NAIL</th>
+            <th class="py-2 font-medium">When</th>
           </tr>
         </thead>
         <tbody id="leaderboard-rows"></tbody>
@@ -105,9 +104,9 @@
 
       <ol id="leaderboard-list" class="hidden flex-col"></ol>
 
-      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No verified scores yet today.</p>
+      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
 
-      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">🏆 Top 5 each day win from the faucet prize pool, paid automatically to the leaders.</p>
+      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
     </section>
 
     <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
@@ -118,11 +117,12 @@
       <p class="text-sm leading-relaxed text-zinc-300">
         A fresh eight-race slate every day, unique to your HomeRoom wallet. No stake. Read the form, pick your winners, and post your score.
       </p>
-      <p class="text-sm font-medium text-zinc-100 border-t border-zinc-800 pt-3">Race 1 of 8 · Your score: 0 pts</p>
+      <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
+      <p data-score class="text-sm font-medium text-zinc-100 border-t border-zinc-800 pt-3">Race 1 of 8 · Your score: 0 $NAIL</p>
     </section>
 
     <section id="race-card" data-state="waiting" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <h2 class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
+      <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
 
       <div>
         <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_6rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
@@ -134,26 +134,48 @@
         <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
       </div>
 
-      <div class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
+      <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-3 text-center" aria-live="polite"></div>
+
+      <div id="race-controls" class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
         <p id="race-confirm" class="hidden text-sm font-semibold text-violet-300" aria-live="polite"></p>
         <button id="run-race" type="button" disabled class="w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">RUN RACE</button>
         <p id="race-hint" class="text-xs text-zinc-500 text-center">Pick a snail to run the race.</p>
       </div>
+
+      <p id="race-done" class="hidden border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center">All 8 races run. A new slate starts at 00:00 UTC.</p>
     </section>
   </main>
 
   <script>
-    // Race Card: display-only for now. Odds and SPD are fixed test values;
-    // picking and locking live in memory only. No race runs yet.
+    // Shared by both scripts below: the platform token arrives as ?token= on
+    // load and is kept in sessionStorage for later fetches.
+    (function () {
+      var token = new URLSearchParams(location.search).get('token');
+      if (token) {
+        try { sessionStorage.setItem('usernode-token', token); } catch (_) {}
+      } else {
+        try { token = sessionStorage.getItem('usernode-token'); } catch (_) {}
+      }
+      window.snailDerby = {
+        authHeaders: function () { return token ? { 'x-usernode-token': token } : {}; },
+        loadBoard: null
+      };
+    })();
+  </script>
+
+  <script>
+    // Race Card and Daily Derby score. The server builds today's slate
+    // (speed and odds per race), draws every winner and awards $NAIL; this
+    // only sends "race N, snail X" and renders what comes back.
     // Snails are listed alphabetically by name (case-insensitive).
     (function () {
       var SNAILS = [
-        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', spd: 7, odds: '5.3×', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10' },
-        { id: 'drea', name: 'Drea', emoji: '🧇', spd: 4, odds: '9.3×', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10' },
-        { id: 'evan', name: 'Evan', emoji: '🌰', spd: 5, odds: '7.4×', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10' },
-        { id: 'lucas', name: 'Lucas', emoji: '🥕', spd: 7, odds: '5.3×', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10' },
-        { id: 'scradio', name: 'Scradio', emoji: '🪨', spd: 7, odds: '5.3×', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10' },
-        { id: 'snait', name: 'Snait', emoji: '🍪', spd: 7, odds: '5.3×', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' }
+        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10' },
+        { id: 'drea', name: 'Drea', emoji: '🧇', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10' },
+        { id: 'evan', name: 'Evan', emoji: '🌰', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10' },
+        { id: 'lucas', name: 'Lucas', emoji: '🥕', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10' },
+        { id: 'scradio', name: 'Scradio', emoji: '🪨', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10' },
+        { id: 'snait', name: 'Snait', emoji: '🍪', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10' }
       ];
 
       var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_6rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
@@ -162,22 +184,48 @@
       var BTN = 'shrink-0 w-24 sm:w-auto h-10 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
       var BTN_ON = ' bg-violet-600 text-white';
       var BTN_OFF = ' border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 disabled:text-zinc-500 disabled:border-zinc-800 disabled:hover:bg-transparent';
+      var PRIMARY = 'w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed';
 
       var card = document.getElementById('race-card');
+      var title = document.getElementById('race-title');
       var list = document.getElementById('race-snails');
+      var controls = document.getElementById('race-controls');
       var confirmEl = document.getElementById('race-confirm');
       var runBtn = document.getElementById('run-race');
       var hint = document.getElementById('race-hint');
+      var resultEl = document.getElementById('race-result');
+      var doneEl = document.getElementById('race-done');
+      var scoreEl = document.querySelector('#daily-derby [data-score]');
+      var logEl = document.getElementById('derby-log');
 
+      // waiting | selected | racing | result | done
       var state = 'waiting';
       var picked = null;
+      var derby = null;   // the last GET /api/derby
+      var shown = 1;      // race number on the card
       var rows = {};
+      var error = '';
 
       function node(tag, cls, text) {
         var n = document.createElement(tag);
         if (cls) n.className = cls;
         if (text != null) n.textContent = text;
         return n;
+      }
+
+      function snailOf(id) {
+        for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i];
+        return { id: id, name: id, emoji: '🐌', badge: 'bg-zinc-800' };
+      }
+
+      function race(n) {
+        return derby && derby.races[n - 1];
+      }
+
+      function field(n, id) {
+        var r = race(n);
+        if (r) for (var i = 0; i < r.snails.length; i++) if (r.snails[i].id === id) return r.snails[i];
+        return null;
       }
 
       SNAILS.forEach(function (s) {
@@ -189,17 +237,21 @@
         var text = node('div', 'min-w-0 flex flex-col');
         text.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
         var meta = node('span', 'sm:hidden text-xs text-zinc-400 flex items-center gap-1.5');
-        meta.appendChild(node('span', 'font-mono rounded px-1.5 py-0.5 ' + s.chip, 'SPD ' + s.spd));
+        var spdM = node('span', 'font-mono rounded px-1.5 py-0.5 ' + s.chip, 'SPD ·');
+        meta.appendChild(spdM);
         meta.appendChild(node('span', null, '·'));
-        meta.appendChild(node('span', 'font-mono tabular-nums text-zinc-200', s.odds));
+        var oddsM = node('span', 'font-mono tabular-nums text-zinc-200', '·');
+        meta.appendChild(oddsM);
         text.appendChild(meta);
         who.appendChild(text);
         li.appendChild(who);
 
         var spdCol = node('span', 'hidden sm:block text-right');
-        spdCol.appendChild(node('span', 'font-mono text-xs rounded px-1.5 py-0.5 ' + s.chip, 'SPD ' + s.spd));
+        var spdD = node('span', 'font-mono text-xs rounded px-1.5 py-0.5 ' + s.chip, 'SPD ·');
+        spdCol.appendChild(spdD);
         li.appendChild(spdCol);
-        li.appendChild(node('span', 'hidden sm:block text-right font-mono tabular-nums text-sm text-zinc-200', s.odds));
+        var oddsD = node('span', 'hidden sm:block text-right font-mono tabular-nums text-sm text-zinc-200', '·');
+        li.appendChild(oddsD);
 
         var btn = node('button', null, 'Pick');
         btn.type = 'button';
@@ -208,44 +260,198 @@
         li.appendChild(btn);
 
         list.appendChild(li);
-        rows[s.id] = { li: li, btn: btn };
+        rows[s.id] = { li: li, btn: btn, spd: [spdM, spdD], odds: [oddsM, oddsD] };
       });
-
-      function nameOf(id) {
-        for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i].name;
-        return '';
-      }
 
       function pick(id) {
-        if (state === 'locked' || picked === id) return;
+        if (state !== 'waiting' && state !== 'selected') return;
+        if (!race(shown) || picked === id) return;
         picked = id;
         state = 'selected';
+        error = '';
         render();
       }
 
-      runBtn.addEventListener('click', function () {
-        if (state !== 'selected') return;
-        state = 'locked';
+      function load() {
+        return fetch('/api/derby', { headers: window.snailDerby.authHeaders() })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (d) {
+            derby = d;
+            picked = null;
+            error = '';
+            if (d.currentRace) {
+              shown = d.currentRace;
+              state = 'waiting';
+            } else {
+              shown = d.racesPerDerby;
+              state = 'done';
+              var last = d.races[shown - 1];
+              if (last && last.result) picked = last.result.pick;
+            }
+            render();
+          })
+          .catch(function () {
+            derby = null;
+            error = 'Races unavailable right now.';
+            render();
+          });
+      }
+
+      function refreshBoard() {
+        if (window.snailDerby.loadBoard) window.snailDerby.loadBoard();
+      }
+
+      function run() {
+        if (state !== 'selected' || !derby) return;
+        state = 'racing';
         render();
-      });
+        fetch('/api/derby/races/' + shown + '/run', {
+          method: 'POST',
+          headers: Object.assign({ 'content-type': 'application/json' }, window.snailDerby.authHeaders()),
+          body: JSON.stringify({ derbyId: derby.derbyId, snailId: picked })
+        })
+          .then(function (r) {
+            if (r.status === 409) return { stale: true };
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (res) {
+            // A new UTC day or a race run elsewhere: reload today's slate.
+            if (res.stale) return load();
+            var r = race(res.raceNumber);
+            r.result = { pick: res.pick, winner: res.winner, won: res.won, nail: res.nail };
+            derby.total = res.total;
+            derby.currentRace = res.nextRace;
+            picked = res.pick;
+            state = 'result';
+            render();
+            refreshBoard();
+          })
+          .catch(function () {
+            state = 'selected';
+            error = "Couldn't run the race. Try again.";
+            render();
+          });
+      }
+
+      runBtn.addEventListener('click', run);
+
+      function next() {
+        if (!derby) return;
+        if (derby.currentRace) {
+          shown = derby.currentRace;
+          picked = null;
+          state = 'waiting';
+        } else {
+          state = 'done';
+        }
+        render();
+      }
+
+      function renderResult(r) {
+        resultEl.textContent = '';
+        var res = r.result;
+        var win = snailOf(res.winner);
+        var mine = snailOf(res.pick);
+        resultEl.setAttribute('data-outcome', res.won ? 'win' : 'miss');
+
+        var wBlock = node('div', 'flex flex-col items-center gap-1');
+        wBlock.appendChild(node('span', 'text-xs font-bold tracking-widest ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), res.won ? '🏆 WINNER' : 'WINNER'));
+        var wName = node('span', 'flex items-center gap-2 text-lg font-bold text-zinc-100');
+        wName.appendChild(node('span', 'w-8 h-8 rounded-full flex items-center justify-center text-base ' + win.badge, win.emoji));
+        wName.appendChild(node('span', null, win.name));
+        wBlock.appendChild(wName);
+        resultEl.appendChild(wBlock);
+
+        var pBlock = node('div', 'flex flex-col items-center gap-0.5');
+        pBlock.appendChild(node('span', 'text-xs text-zinc-500', 'Your pick'));
+        pBlock.appendChild(node('span', 'font-semibold text-zinc-200', mine.name));
+        resultEl.appendChild(pBlock);
+
+        var nBlock = node('div', 'flex flex-col items-center gap-0.5');
+        if (!res.won) nBlock.appendChild(node('span', 'text-sm font-bold tracking-widest text-zinc-400', 'MISS'));
+        nBlock.appendChild(node('span', 'font-mono tabular-nums text-2xl font-bold ' + (res.won ? 'text-violet-300' : 'text-zinc-400'), '+' + res.nail + ' $NAIL'));
+        resultEl.appendChild(nBlock);
+
+        var dBlock = node('div', 'flex flex-col items-center gap-0.5 border-t border-zinc-800 pt-3');
+        dBlock.appendChild(node('span', 'text-xs text-zinc-500', 'Daily Score'));
+        dBlock.appendChild(node('span', 'font-mono tabular-nums text-lg font-bold text-zinc-100', derby.total + ' $NAIL'));
+        resultEl.appendChild(dBlock);
+
+        // After race 8 there is no next race: the done line shows instead.
+        if (derby.currentRace) {
+          var nextBtn = node('button', PRIMARY, 'NEXT RACE');
+          nextBtn.type = 'button';
+          nextBtn.id = 'next-race';
+          nextBtn.addEventListener('click', next);
+          resultEl.appendChild(nextBtn);
+        }
+      }
+
+      function renderScore() {
+        logEl.textContent = '';
+        if (!derby) return;
+        var done = derby.races.filter(function (r) { return r.result; });
+        done.forEach(function (r) {
+          var li = node('li', 'grid grid-cols-[1fr_auto_auto] gap-3 py-0.5');
+          li.setAttribute('data-log-race', String(r.raceNumber));
+          li.appendChild(node('span', 'text-zinc-400', 'Race ' + r.raceNumber));
+          li.appendChild(node('span', r.result.won ? 'font-semibold text-violet-300' : 'text-zinc-500', r.result.won ? 'WIN' : 'MISS'));
+          li.appendChild(node('span', 'text-right ' + (r.result.won ? 'text-zinc-100' : 'text-zinc-500'), '+' + r.result.nail + ' $NAIL'));
+          logEl.appendChild(li);
+        });
+        if (done.length) {
+          var tot = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1.5 mt-1 border-t border-zinc-800 font-bold');
+          tot.appendChild(node('span', 'text-zinc-300', 'TOTAL'));
+          tot.appendChild(node('span', 'text-right text-zinc-100', derby.total + ' $NAIL'));
+          logEl.appendChild(tot);
+          logEl.className = 'flex flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
+        } else {
+          logEl.className = 'hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
+        }
+        var head = derby.currentRace
+          ? 'Race ' + derby.currentRace + ' of ' + derby.racesPerDerby
+          : 'Daily Derby complete';
+        scoreEl.textContent = head + ' · Your score: ' + derby.total + ' $NAIL';
+      }
 
       function render() {
         card.setAttribute('data-state', state);
+        card.setAttribute('data-race', String(shown));
+        title.textContent = '🏁 Race ' + shown;
+        var r = race(shown);
+        var locked = state === 'racing' || state === 'result' || state === 'done';
+
         SNAILS.forEach(function (s) {
-          var r = rows[s.id];
+          var row = rows[s.id];
+          var f = field(shown, s.id);
+          row.spd.forEach(function (el) { el.textContent = 'SPD ' + (f ? f.spd : '·'); });
+          row.odds.forEach(function (el) { el.textContent = f ? f.odds : '·'; });
           var on = s.id === picked;
           var dim = picked && !on ? ' opacity-60' : '';
-          r.li.className = ROW + (on ? ROW_ON : ROW_OFF) + dim;
-          if (on) r.li.setAttribute('data-selected', '');
-          else r.li.removeAttribute('data-selected');
-          r.btn.className = BTN + (on ? BTN_ON : BTN_OFF);
-          r.btn.textContent = on ? '✓ Picked' : 'Pick';
-          r.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-          r.btn.disabled = state === 'locked';
+          row.li.className = ROW + (on ? ROW_ON : ROW_OFF) + dim;
+          if (on) row.li.setAttribute('data-selected', '');
+          else row.li.removeAttribute('data-selected');
+          row.btn.className = BTN + (on ? BTN_ON : BTN_OFF);
+          row.btn.textContent = on ? '✓ Picked' : 'Pick';
+          row.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+          row.btn.disabled = locked || !r;
         });
 
-        if (picked) {
-          confirmEl.textContent = state === 'locked' ? '🔒 ' + nameOf(picked) + ' locked in' : '✓ ' + nameOf(picked) + ' selected';
+        var showResult = (state === 'result' || state === 'done') && r && r.result;
+        if (showResult) renderResult(r);
+        resultEl.className = showResult
+          ? 'border-t border-zinc-800 pt-3 flex flex-col gap-3 text-center'
+          : 'hidden border-t border-zinc-800 pt-3 flex-col gap-3 text-center';
+        controls.className = state === 'result' || state === 'done'
+          ? 'hidden border-t border-zinc-800 pt-3 flex-col gap-2'
+          : 'border-t border-zinc-800 pt-3 flex flex-col gap-2';
+        doneEl.className = state === 'done' || (state === 'result' && derby && !derby.currentRace)
+          ? 'border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center'
+          : 'hidden border-t border-zinc-800 pt-3 text-sm text-zinc-300 text-center';
+
+        if (picked && (state === 'selected' || state === 'racing')) {
+          confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected';
           confirmEl.className = 'text-sm font-semibold text-violet-300';
         } else {
           confirmEl.textContent = '';
@@ -253,30 +459,31 @@
         }
 
         runBtn.disabled = state !== 'selected';
-        runBtn.textContent = state === 'locked' ? 'RACE LOCKED' : 'RUN RACE';
-        hint.className = state === 'waiting' ? 'text-xs text-zinc-500 text-center' : 'hidden text-xs text-zinc-500 text-center';
+        runBtn.textContent = state === 'racing' ? 'RACING…' : 'RUN RACE';
+        if (error) hint.textContent = error;
+        else hint.textContent = 'Pick a snail to run the race.';
+        hint.className = state === 'waiting' || error
+          ? 'text-xs text-zinc-500 text-center'
+          : 'hidden text-xs text-zinc-500 text-center';
+
+        renderScore();
       }
 
       render();
+      load();
     })();
   </script>
 
   <script>
     (function () {
-      var params = new URLSearchParams(location.search);
-      var token = params.get('token');
-      if (token) {
-        try { sessionStorage.setItem('usernode-token', token); } catch (_) {}
-      } else {
-        try { token = sessionStorage.getItem('usernode-token'); } catch (_) {}
-      }
+      var authHeaders = window.snailDerby.authHeaders;
 
       function truncate(addr) {
         return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
       }
 
       var el = document.getElementById('wallet');
-      fetch('/api/me', { headers: token ? { 'x-usernode-token': token } : {} })
+      fetch('/api/me', { headers: authHeaders() })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (me) {
           if (me && me.wallet) {
@@ -288,8 +495,8 @@
         })
         .catch(function () { el.textContent = 'No wallet linked'; });
 
-      // Daily Derby Leaderboard. The server ranks, prices and marks the
-      // viewer's own row (isYou); this only renders what it sends.
+      // Daily Derby Leaderboard. The server ranks and marks the viewer's own
+      // row (isYou); this only renders what it sends.
       var MEDALS = ['🥇', '🥈', '🥉'];
       var MONTH = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
       var table = document.getElementById('leaderboard-table');
@@ -319,8 +526,11 @@
         return node('span', 'ml-2 text-[10px] font-bold text-violet-300 bg-violet-500/20 rounded px-1.5 py-0.5 align-middle', 'YOU');
       }
 
-      function prize(e) {
-        return e.reward != null ? '🏆 ' + e.reward + ' HR' : '';
+      // Wallet players show a truncated address; players with no wallet
+      // linked (keyed 'user:<id>') show their @username.
+      function playerName(e) {
+        if (e.walletAddress.indexOf('user:') === 0) return e.username ? '@' + e.username : 'Player';
+        return truncate(e.walletAddress);
       }
 
       function mark(el, e) {
@@ -332,7 +542,7 @@
         var entries = board.entries || [];
         rowsEl.textContent = '';
         listEl.textContent = '';
-        emptyEl.textContent = 'No verified scores yet today.';
+        emptyEl.textContent = 'No $NAIL scores yet today.';
         if (!entries.length) {
           table.className = 'hidden w-full text-sm';
           listEl.className = 'hidden flex-col';
@@ -348,14 +558,13 @@
           var tr = node('tr', 'border-b border-zinc-800/60 last:border-0' + you);
           mark(tr, e);
           tr.appendChild(node('td', 'py-2 pr-2 text-zinc-400 font-mono tabular-nums', String(e.rank)));
-          var player = node('td', 'py-2 pr-2 font-mono text-zinc-200', truncate(e.walletAddress));
+          var player = node('td', 'py-2 pr-2 font-mono text-zinc-200', playerName(e));
           player.title = e.walletAddress;
           tr.appendChild(player);
           var pts = node('td', 'py-2 pr-2 text-right font-mono tabular-nums font-bold text-zinc-100', String(e.totalPoints));
           if (e.isYou) pts.appendChild(youTag());
           tr.appendChild(pts);
-          tr.appendChild(node('td', 'py-2 pr-2 text-zinc-400 whitespace-nowrap', when(e.submittedAt)));
-          tr.appendChild(node('td', 'py-2 whitespace-nowrap text-zinc-200', prize(e)));
+          tr.appendChild(node('td', 'py-2 text-zinc-400 whitespace-nowrap', when(e.submittedAt)));
           rowsEl.appendChild(tr);
 
           var li = node('li', 'flex gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-zinc-800/60 last:border-0' + you);
@@ -363,15 +572,14 @@
           li.appendChild(node('span', 'w-6 shrink-0 text-center font-mono tabular-nums text-zinc-400', MEDALS[e.rank - 1] || String(e.rank)));
           var body = node('div', 'flex-1 min-w-0 flex flex-col gap-0.5');
           var top = node('div', 'flex items-baseline justify-between gap-2');
-          var addr = node('span', 'font-mono text-sm text-zinc-200 truncate', truncate(e.walletAddress));
+          var addr = node('span', 'font-mono text-sm text-zinc-200 truncate', playerName(e));
           addr.title = e.walletAddress;
           top.appendChild(addr);
-          var mpts = node('span', 'shrink-0 font-mono tabular-nums text-base font-bold text-zinc-100', e.totalPoints + ' pts');
+          var mpts = node('span', 'shrink-0 font-mono tabular-nums text-base font-bold text-zinc-100', e.totalPoints + ' $NAIL');
           if (e.isYou) mpts.appendChild(youTag());
           top.appendChild(mpts);
-          var bottom = node('div', 'flex items-baseline justify-between gap-2 text-xs text-zinc-400');
+          var bottom = node('div', 'text-xs text-zinc-400');
           bottom.appendChild(node('span', null, when(e.submittedAt)));
-          bottom.appendChild(node('span', 'shrink-0 text-zinc-300', prize(e)));
           body.appendChild(top);
           body.appendChild(bottom);
           li.appendChild(body);
@@ -380,12 +588,13 @@
       }
 
       function loadBoard() {
-        return fetch('/api/leaderboard' + query, { headers: token ? { 'x-usernode-token': token } : {} })
+        return fetch('/api/leaderboard' + query, { headers: authHeaders() })
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
           .then(function (board) {
             loaded = true;
             if (board.pollMs) pollMs = board.pollMs;
             render(board);
+            document.getElementById('leaderboard').setAttribute('data-loaded', '');
           })
           .catch(function () {
             // Keep the last good board; only say so before the first load.
@@ -408,6 +617,9 @@
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden) loadBoard().then(schedule);
       });
+
+      // The race flow refreshes the board right after each result.
+      window.snailDerby.loadBoard = function () { return loadBoard().then(schedule); };
 
       loadBoard().then(schedule);
     })();
