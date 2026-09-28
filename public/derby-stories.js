@@ -165,7 +165,7 @@
         ['overconfidence', '', '{name} saw the finish line, remembered somewhere to be, and suddenly became extremely motivated.'],
         ['overconfidence', '', '{name} announced the win before the race started. Then made it true, just to be right.'],
         ['rivalry', '', '{name} stole the lane of the snail next door. Rude, but very effective.'],
-        ['money', '', '{name} bet a friend a whole lettuce on this race and cannot afford to lose a lettuce.'],
+        ['money', '', '{name} promised a friend a whole lettuce if they lost and cannot afford to give away a lettuce.'],
         ['food', '', '{name} smelled carrot cake at the finish line and simply took off.'],
         ['jealousy', '', '{name} could not stand the idea of anyone else getting the trophy photo.'],
         ['spectators', '', 'The crowd booed {name} at the start. {name} took that as fuel.'],
@@ -213,7 +213,7 @@
         ['money', '', '{name} had signed a serious business contract to win this race. {name} honours contracts.'],
         ['food', '', 'A lettuce leaf fell from the sky and landed ahead of {name}. {name} pursued it with dignity.'],
         ['family', '', '{name}\'s entire family was holding a banner. {name} could not face them otherwise.'],
-        ['spectators', '', 'A pigeon in the crowd had bet on {name}. {name} did not want trouble with the pigeon.'],
+        ['spectators', '', 'A pigeon in the crowd was cheering for {name}. {name} did not want trouble with the pigeon.'],
         ['sleepiness', '', '{name} was actually asleep with a very serious face. The track was downhill.'],
         ['philosophy', '', '{name} contemplated the sheer seriousness of racing and found it deeply motivating.'],
         ['bad-luck', '', '{name} had terrible luck all morning. The universe owed {name} one, and paid today.'],
@@ -319,7 +319,7 @@
       ['sleepiness', '', '{name} was too sleepy to get distracted, which turned out to be a superpower.'],
       ['romance', '', '{name} got a good luck kiss at the start. That kiss had a lot of speed in it.'],
       ['laziness', '', '{name} found the laziest possible line through the course. It was also the shortest.'],
-      ['spectators', 'longshot', 'Nobody bet on {name}. {name} took that as a personal challenge.'],
+      ['spectators', 'longshot', 'Nobody picked {name}. {name} took that as a personal challenge.'],
       ['money', 'longshot', 'The odds said no. {name} does not speak the language of odds.'],
       ['strange', 'favourite', '{name} was the favourite, and for once, the favourite did favourite things.'],
       ['philosophy', 'favourite', '{name} had the best speed on the card and actually used it, which is rare in this sport.']
@@ -567,7 +567,7 @@
     ] },
     statistician: { label: 'The Statistician', lines: [
       'You always picked the fastest looking snail. You believe in evidence. Boring, but occasionally profitable.',
-      '{FavPicks} favourite picks. You read the form, trusted the numbers and made it look like homework.',
+      '{FavPicks} favourite picks. You trusted the numbers and made it look like homework.',
       'Your strategy was simple: pick the best speed. Your snails respected the spreadsheet.'
     ] },
     favouriteChaser: { label: 'The Favourite Chaser', lines: [
@@ -577,11 +577,11 @@
     ] },
     chaos: { label: 'The Chaos Agent', lines: [
       'You picked six different snails across eight races. Strategy was clearly invited, but never showed up.',
-      'Every snail got a turn. You were not betting, you were running a fairness program.',
+      'Every snail got a turn. You were not picking winners, you were running a fairness program.',
       'Six snails, eight races, zero pattern. You are a mystery even to the snails.'
     ] },
     romantic: { label: 'The Romantic', lines: [
-      '{TopCount} {top} picks. At this point, you\'re not betting on snails. You\'re looking for love.',
+      '{TopCount} {top} picks. At this point, you\'re not picking snails. You\'re looking for love.',
       'You picked {top} {topCount} times. You seem to have a weakness for romance, even when romance is clearly slowing down.',
       '{TopCount} {top} picks. The racing was optional. The romance was not.'
     ] },
