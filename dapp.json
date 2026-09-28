@@ -133,5 +133,9 @@
       "path": "/",
       "expectSelector": "#leaderboard ~ #race-card"
     }
-  ]
+  ],
+  "visibility": {
+    "build": "public",
+    "view": "public"
+  }
 }
