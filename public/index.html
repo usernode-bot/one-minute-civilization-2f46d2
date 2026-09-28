@@ -87,7 +87,7 @@
           <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
           <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
         </div>
-        <p class="text-xs text-zinc-400">Today's top $NAIL scores. Every race is settled by the server.</p>
+        <p class="text-xs text-zinc-400">Today's top scores</p>
       </div>
 
       <table id="leaderboard-table" class="hidden w-full text-sm">
@@ -95,8 +95,7 @@
           <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
             <th class="py-2 pr-2 font-medium w-8">#</th>
             <th class="py-2 pr-2 font-medium">Player</th>
-            <th class="py-2 pr-2 font-medium text-right">$NAIL</th>
-            <th class="py-2 font-medium">When</th>
+            <th class="py-2 font-medium text-right">$NAIL</th>
           </tr>
         </thead>
         <tbody id="leaderboard-rows"></tbody>
@@ -105,6 +104,20 @@
       <ol id="leaderboard-list" class="hidden flex-col"></ol>
 
       <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
+
+      <div id="leaderboard-you" data-your-rank="" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs text-zinc-500">Your Rank</span>
+            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">—</span>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs text-zinc-500">Your Score</span>
+            <span id="your-score" class="font-mono tabular-nums text-base font-bold text-zinc-100">0 $NAIL</span>
+          </div>
+        </div>
+        <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
+      </div>
 
       <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
     </section>
@@ -498,7 +511,6 @@
       // Daily Derby Leaderboard. The server ranks and marks the viewer's own
       // row (isYou); this only renders what it sends.
       var MEDALS = ['🥇', '🥈', '🥉'];
-      var MONTH = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
       var table = document.getElementById('leaderboard-table');
       var rowsEl = document.getElementById('leaderboard-rows');
       var listEl = document.getElementById('leaderboard-list');
@@ -507,13 +519,6 @@
       var pollMs = 30000;
       var timer = null;
       var query = new URLSearchParams(location.search).get('demo') === '1' ? '?demo=1' : '';
-
-      function when(iso) {
-        var d = new Date(iso);
-        var hh = String(d.getUTCHours()).padStart(2, '0');
-        var mm = String(d.getUTCMinutes()).padStart(2, '0');
-        return MONTH.format(d) + ' · ' + hh + ':' + mm;
-      }
 
       function node(tag, cls, text) {
         var n = document.createElement(tag);
@@ -526,11 +531,40 @@
         return node('span', 'ml-2 text-[10px] font-bold text-violet-300 bg-violet-500/20 rounded px-1.5 py-0.5 align-middle', 'YOU');
       }
 
-      // Wallet players show a truncated address; players with no wallet
-      // linked (keyed 'user:<id>') show their @username.
+      // Every player is their HomeRoom wallet, shown shortened.
       function playerName(e) {
-        if (e.walletAddress.indexOf('user:') === 0) return e.username ? '@' + e.username : 'Player';
         return truncate(e.walletAddress);
+      }
+
+      // The viewer's own rank and score, sent by the server even when they
+      // are outside the top list.
+      var youEl = document.getElementById('leaderboard-you');
+      var yourRankEl = document.getElementById('your-rank');
+      var yourScoreEl = document.getElementById('your-score');
+      var yourHintEl = document.getElementById('your-hint');
+
+      function renderYou(you) {
+        if (!you) {
+          youEl.className = 'hidden border-t border-zinc-800 pt-3 flex-col gap-2';
+          return;
+        }
+        youEl.className = 'flex border-t border-zinc-800 pt-3 flex-col gap-2';
+        var hint = '';
+        if (!you.hasWallet) {
+          yourRankEl.textContent = '—';
+          yourScoreEl.textContent = '—';
+          hint = 'Link a HomeRoom wallet to appear on the leaderboard.';
+        } else if (you.rank == null) {
+          yourRankEl.textContent = '—';
+          yourScoreEl.textContent = '0 $NAIL';
+          hint = 'Finish a race to get on the board.';
+        } else {
+          yourRankEl.textContent = '#' + you.rank;
+          yourScoreEl.textContent = you.totalPoints + ' $NAIL';
+        }
+        youEl.setAttribute('data-your-rank', you.rank == null ? '' : String(you.rank));
+        yourHintEl.textContent = hint;
+        yourHintEl.className = hint ? 'text-xs text-zinc-400' : 'hidden text-xs text-zinc-400';
       }
 
       function mark(el, e) {
@@ -540,6 +574,7 @@
 
       function render(board) {
         var entries = board.entries || [];
+        renderYou(board.you);
         rowsEl.textContent = '';
         listEl.textContent = '';
         emptyEl.textContent = 'No $NAIL scores yet today.';
@@ -561,28 +596,22 @@
           var player = node('td', 'py-2 pr-2 font-mono text-zinc-200', playerName(e));
           player.title = e.walletAddress;
           tr.appendChild(player);
-          var pts = node('td', 'py-2 pr-2 text-right font-mono tabular-nums font-bold text-zinc-100', String(e.totalPoints));
+          var pts = node('td', 'py-2 text-right font-mono tabular-nums font-bold text-zinc-100', String(e.totalPoints));
           if (e.isYou) pts.appendChild(youTag());
           tr.appendChild(pts);
-          tr.appendChild(node('td', 'py-2 text-zinc-400 whitespace-nowrap', when(e.submittedAt)));
           rowsEl.appendChild(tr);
 
           var li = node('li', 'flex gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-zinc-800/60 last:border-0' + you);
           mark(li, e);
           li.appendChild(node('span', 'w-6 shrink-0 text-center font-mono tabular-nums text-zinc-400', MEDALS[e.rank - 1] || String(e.rank)));
-          var body = node('div', 'flex-1 min-w-0 flex flex-col gap-0.5');
-          var top = node('div', 'flex items-baseline justify-between gap-2');
+          var top = node('div', 'flex-1 min-w-0 flex items-baseline justify-between gap-2');
           var addr = node('span', 'font-mono text-sm text-zinc-200 truncate', playerName(e));
           addr.title = e.walletAddress;
           top.appendChild(addr);
           var mpts = node('span', 'shrink-0 font-mono tabular-nums text-base font-bold text-zinc-100', e.totalPoints + ' $NAIL');
           if (e.isYou) mpts.appendChild(youTag());
           top.appendChild(mpts);
-          var bottom = node('div', 'text-xs text-zinc-400');
-          bottom.appendChild(node('span', null, when(e.submittedAt)));
-          body.appendChild(top);
-          body.appendChild(bottom);
-          li.appendChild(body);
+          li.appendChild(top);
           listEl.appendChild(li);
         });
       }

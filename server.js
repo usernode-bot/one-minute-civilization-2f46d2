@@ -306,19 +306,30 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
     race.nail_awarded = nail;
     race.resolved_at = new Date();
     const total = sumOf(rows);
-    await client.query(
-      `INSERT INTO leaderboard_entries
-         (derby_id, wallet_address, username, total_points, submitted_at,
-          verification_status, verified_at)
-       VALUES ($1, $2, $3, $4, now(), 'verified', now())
-       ON CONFLICT (derby_id, wallet_address) DO UPDATE
-         SET total_points = EXCLUDED.total_points,
-             username = EXCLUDED.username,
-             submitted_at = EXCLUDED.submitted_at,
-             verification_status = 'verified',
-             verified_at = EXCLUDED.verified_at`,
-      [derbyId, key, req.user.username || null, total]
-    );
+    // Only a linked HomeRoom wallet goes on the board. The timestamps move
+    // only when the total changes, so a 0 $NAIL race never costs a tied
+    // player their place: first to reach a total ranks higher.
+    if (req.user.usernode_pubkey) {
+      await client.query(
+        `INSERT INTO leaderboard_entries
+           (derby_id, wallet_address, total_points, submitted_at,
+            verification_status, verified_at)
+         VALUES ($1, $2, $3, now(), 'verified', now())
+         ON CONFLICT (derby_id, wallet_address) DO UPDATE
+           SET total_points = EXCLUDED.total_points,
+               submitted_at = CASE
+                 WHEN leaderboard_entries.total_points = EXCLUDED.total_points
+                   THEN leaderboard_entries.submitted_at
+                 ELSE EXCLUDED.submitted_at END,
+               verification_status = 'verified',
+               verified_at = CASE
+                 WHEN leaderboard_entries.total_points = EXCLUDED.total_points
+                   AND leaderboard_entries.verified_at IS NOT NULL
+                   THEN leaderboard_entries.verified_at
+                 ELSE EXCLUDED.verified_at END`,
+        [derbyId, req.user.usernode_pubkey, total]
+      );
+    }
     await client.query('COMMIT');
     const next = rows.find(r => !r.resolved_at);
     res.json({
@@ -360,15 +371,38 @@ app.get('/api/leaderboard', async (req, res) => {
       }
     }
     if (derbyId !== DEMO_DERBY_ID) await ensureDerby(pool, derbyId, derbyDate);
+    // Wallet players only: legacy 'user:<id>' rows are never listed.
     const { rows } = await pool.query(
-      `SELECT wallet_address, username, total_points, submitted_at
+      `SELECT wallet_address, total_points, submitted_at
          FROM leaderboard_entries
         WHERE derby_id = $1 AND verification_status = 'verified'
+          AND wallet_address NOT LIKE 'user:%'
         ORDER BY total_points DESC, verified_at ASC, wallet_address ASC
         LIMIT $2`,
       [derbyId, LEADERBOARD_SIZE]
     );
-    const me = playerKey(req);
+    // The viewer's own rank, over the same filter and order, so it shows
+    // even outside the top list.
+    const wallet = req.user.usernode_pubkey || null;
+    let you = { hasWallet: false, rank: null, totalPoints: null };
+    if (wallet) {
+      const mine = await pool.query(
+        `SELECT rank, total_points FROM (
+           SELECT wallet_address, total_points,
+                  ROW_NUMBER() OVER (
+                    ORDER BY total_points DESC, verified_at ASC, wallet_address ASC
+                  ) AS rank
+             FROM leaderboard_entries
+            WHERE derby_id = $1 AND verification_status = 'verified'
+              AND wallet_address NOT LIKE 'user:%'
+         ) ranked
+         WHERE wallet_address = $2`,
+        [derbyId, wallet]
+      );
+      you = mine.rows.length
+        ? { hasWallet: true, rank: Number(mine.rows[0].rank), totalPoints: mine.rows[0].total_points }
+        : { hasWallet: true, rank: null, totalPoints: 0 };
+    }
     res.json({
       derbyId,
       date: derbyDate,
@@ -376,12 +410,12 @@ app.get('/api/leaderboard', async (req, res) => {
       entries: rows.map((r, i) => ({
         rank: i + 1,
         walletAddress: r.wallet_address,
-        username: r.username || null,
         totalPoints: r.total_points,
         submittedAt: r.submitted_at,
         verificationStatus: 'verified',
-        isYou: !!me && r.wallet_address === me,
+        isYou: !!wallet && r.wallet_address === wallet,
       })),
+      you,
     });
   } catch (err) {
     console.warn('leaderboard query failed: ' + err.message);
@@ -460,8 +494,9 @@ async function migrate() {
       PRIMARY KEY (derby_id, wallet_address),
       CHECK (verification_status <> 'verified' OR verified_at IS NOT NULL)
     )`);
-  // wallet_address holds the player key: the HomeRoom wallet, or
-  // 'user:<platform id>' when none is linked. username is for display only.
+  // wallet_address is the player's HomeRoom wallet. Older rows may hold
+  // 'user:<platform id>'; they are never listed. username is no longer
+  // written or shown and is kept only to avoid a destructive migration.
   await pool.query(
     'ALTER TABLE leaderboard_entries ADD COLUMN IF NOT EXISTS username TEXT'
   );
@@ -493,46 +528,58 @@ async function migrate() {
     )`);
 }
 
-// Staging only: a fixed demo derby read behind ?demo=1. Fake ut1-style
-// wallets plus one fake no-wallet player, never the visitor. The pending and
-// rejected rows carry the highest points on purpose, so a broken filter is
-// obvious at a glance. Races are never seeded: the race flow starts empty
-// on staging exactly as in production.
+// Staging only: a fixed demo derby read behind ?demo=1. Twelve fake
+// ut1-style wallets, never the visitor, so the top-10 cut shows. Two share
+// 1100 $NAIL to show the tiebreak (first to reach it ranks higher). The
+// pending and rejected rows carry the highest points on purpose, so a broken
+// filter is obvious at a glance. Races are never seeded: the race flow
+// starts empty on staging exactly as in production.
 async function seedStaging() {
   await pool.query(
     `INSERT INTO daily_derbies (derby_id, derby_date) VALUES ($1, '2026-09-28')
      ON CONFLICT (derby_id) DO NOTHING`,
     [DEMO_DERBY_ID]
   );
+  // The board is wallet-only now: drop the old no-wallet demo player.
+  await pool.query(
+    `DELETE FROM leaderboard_entries
+      WHERE derby_id = $1 AND wallet_address LIKE 'user:%'`,
+    [DEMO_DERBY_ID]
+  );
   const wallet = n => 'ut1stagingdemosnail' + String(n).padStart(21, '0');
   const rows = [
-    [wallet(1), null, 1650, '03:22', 'verified'],
-    [wallet(2), null, 1400, '04:11', 'verified'],
-    [wallet(3), null, 1250, '05:43', 'verified'],
-    [wallet(4), null, 1100, '06:18', 'verified'],
-    [wallet(5), null, 1100, '06:40', 'verified'],
-    [wallet(6), null, 850, '07:02', 'verified'],
-    ['user:900001', 'staging-demo-snail', 600, '07:30', 'verified'],
-    [wallet(7), null, 9999, '08:15', 'pending'],
-    [wallet(8), null, 8888, '08:30', 'rejected'],
+    [wallet(1), 1650, '03:22', 'verified'],
+    [wallet(2), 1400, '04:11', 'verified'],
+    [wallet(3), 1250, '05:43', 'verified'],
+    [wallet(4), 1100, '06:18', 'verified'],
+    [wallet(5), 1100, '06:40', 'verified'],
+    [wallet(6), 950, '07:02', 'verified'],
+    [wallet(7), 850, '07:15', 'verified'],
+    [wallet(8), 750, '07:30', 'verified'],
+    [wallet(9), 700, '07:48', 'verified'],
+    [wallet(10), 600, '08:05', 'verified'],
+    [wallet(11), 450, '08:20', 'verified'],
+    [wallet(12), 250, '08:40', 'verified'],
+    [wallet(13), 9999, '08:15', 'pending'],
+    [wallet(14), 8888, '08:30', 'rejected'],
   ];
   // DO UPDATE, not DO NOTHING: these fixed demo rows replace older demo
   // values already sitting in a staging database.
-  for (const [key, username, points, time, status] of rows) {
+  for (const [key, points, time, status] of rows) {
     const at = '2026-09-28T' + time + ':00Z';
     await pool.query(
       `INSERT INTO leaderboard_entries
          (derby_id, wallet_address, username, total_points, submitted_at,
           verification_status, verified_at)
-       VALUES ($1, $2, $3, $4, $5, $6,
-               CASE WHEN $6 = 'verified' THEN $5::timestamptz + interval '1 minute' END)
+       VALUES ($1, $2, NULL, $3, $4, $5,
+               CASE WHEN $5 = 'verified' THEN $4::timestamptz + interval '1 minute' END)
        ON CONFLICT (derby_id, wallet_address) DO UPDATE
-         SET username = EXCLUDED.username,
+         SET username = NULL,
              total_points = EXCLUDED.total_points,
              submitted_at = EXCLUDED.submitted_at,
              verification_status = EXCLUDED.verification_status,
              verified_at = EXCLUDED.verified_at`,
-      [DEMO_DERBY_ID, key, username, points, at, status]
+      [DEMO_DERBY_ID, key, points, at, status]
     );
   }
 }
