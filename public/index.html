@@ -602,6 +602,7 @@
             var r = race(res.raceNumber);
             r.result = { pick: res.pick, winner: res.winner, won: res.won, nail: res.nail };
             derby.total = res.total;
+            derby.lifetimeTotal = res.lifetimeTotal;
             derby.currentRace = res.nextRace;
             picked = res.pick;
             // The score is saved: the board can update while the snails run.
@@ -887,6 +888,15 @@
         tot.appendChild(node('span', 'text-zinc-300', 'TOTAL'));
         tot.appendChild(node('span', 'text-right text-zinc-100', '$NAIL ' + total));
         logEl.appendChild(tot);
+        // Sums every $NAIL the player has ever earned, across every day's
+        // derby. Unlike TOTAL, this one never resets: it's the running proof
+        // that yesterday's races still count.
+        var lifetime = derby && typeof derby.lifetimeTotal === 'number' ? derby.lifetimeTotal : 0;
+        var life = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1');
+        life.setAttribute('data-lifetime', String(lifetime));
+        life.appendChild(node('span', 'text-zinc-500', 'ALL-TIME'));
+        life.appendChild(node('span', 'text-right text-zinc-500', '$NAIL ' + lifetime));
+        logEl.appendChild(life);
         logEl.className = 'flex flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums';
         if (!derby) {
           scoreEl.textContent = 'RACE 1 / ' + RACES + ' · $NAIL 0';

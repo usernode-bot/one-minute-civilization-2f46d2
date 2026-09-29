@@ -224,12 +224,17 @@ app.get('/api/derby', async (req, res) => {
         ORDER BY race_number`,
       [derbyId, key]
     );
+    const life = await pool.query(
+      'SELECT total_points FROM player_lifetime_points WHERE player_key = $1',
+      [key]
+    );
     const current = rows.find(r => !r.resolved_at);
     res.json({
       derbyId,
       date,
       racesPerDerby: RACES_PER_DERBY,
       total: rows.reduce((a, r) => a + (r.nail_awarded || 0), 0),
+      lifetimeTotal: life.rows.length ? life.rows[0].total_points : 0,
       currentRace: current ? current.race_number : null,
       races: rows.map(raceView),
     });
@@ -275,6 +280,10 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
     if (race.resolved_at) {
       await client.query('ROLLBACK');
       const next = rows.find(r => !r.resolved_at);
+      const life = await pool.query(
+        'SELECT total_points FROM player_lifetime_points WHERE player_key = $1',
+        [key]
+      );
       return res.json({
         raceNumber: n,
         pick: race.picked_snail,
@@ -282,6 +291,7 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
         won: race.picked_snail === race.winner_snail,
         nail: race.nail_awarded,
         total: sumOf(rows),
+        lifetimeTotal: life.rows.length ? life.rows[0].total_points : 0,
         nextRace: next ? next.race_number : null,
         alreadyResolved: true,
       });
@@ -306,6 +316,20 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
     race.nail_awarded = nail;
     race.resolved_at = new Date();
     const total = sumOf(rows);
+    // Adds this race's award to the player's running lifetime total. This is
+    // the one score that is meant to survive a new day: always an increment
+    // by `nail`, never an overwrite of the stored total, so it structurally
+    // cannot be reset by tomorrow's fresh derby slate.
+    const life = await client.query(
+      `INSERT INTO player_lifetime_points (player_key, total_points, updated_at)
+         VALUES ($1, $2, now())
+       ON CONFLICT (player_key) DO UPDATE
+         SET total_points = player_lifetime_points.total_points + $2,
+             updated_at = now()
+       RETURNING total_points`,
+      [key, nail]
+    );
+    const lifetimeTotal = life.rows[0].total_points;
     // Only a linked HomeRoom wallet goes on the board. The timestamps move
     // only when the total changes, so a 0 $NAIL race never costs a tied
     // player their place: first to reach a total ranks higher.
@@ -339,6 +363,7 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
       won: winner === snailId,
       nail,
       total,
+      lifetimeTotal,
       nextRace: next ? next.race_number : null,
       alreadyResolved: false,
     });
@@ -525,6 +550,17 @@ async function migrate() {
         OR (picked_snail IS NOT NULL AND winner_snail IS NOT NULL
           AND nail_awarded IS NOT NULL AND resolved_at IS NOT NULL)
       )
+    )`);
+  // One row per player, summed across every derby the player has ever run a
+  // race in. Every derby is its own daily slate by design (see todayDerby),
+  // so this is the one total that is meant to carry across days: it is only
+  // ever incremented, in the same transaction that resolves a race, and
+  // never reset or overwritten.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_lifetime_points (
+      player_key TEXT PRIMARY KEY,
+      total_points INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
 }
 
