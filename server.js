@@ -455,7 +455,15 @@ app.get('/api/leaderboard', async (req, res) => {
 // fresh load.
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
-app.use(express.static(path.join(__dirname, 'public')));
+// `index: false`: without it express.static serves public/index.html
+// straight off GET / (and any other directory-style path), before the
+// catch-all below ever runs. That silently defeats the redirect just
+// below it for exactly the request a pasted share link makes — the
+// visitor lands on this bare, unauthenticated app subdomain instead of
+// being sent through the platform's chromeless view. Every other static
+// file (CSS/JS/images) is unaffected: this only turns off the implicit
+// index-file lookup for a directory request.
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // HTML shell: serve the app if authenticated. Unauthenticated top-level
 // visits (share links pasted into a browser — Sec-Fetch-Dest: document)
