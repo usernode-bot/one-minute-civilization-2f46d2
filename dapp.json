@@ -32,6 +32,11 @@
       "expectSelector": "#daily-derby [data-score]"
     },
     {
+      "name": "Daily Derby card shows an ALL-TIME $NAIL total that persists across days",
+      "path": "/",
+      "expectSelector": "#derby-log [data-lifetime]"
+    },
+    {
       "id": "home.leaderboard",
       "name": "Daily Derby Leaderboard shows verified $NAIL scores",
       "path": "/?demo=1",
