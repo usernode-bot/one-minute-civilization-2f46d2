@@ -83,7 +83,7 @@
       "id": "home.race-card",
       "name": "Race Card shows six snails waiting for a pick",
       "path": "/",
-      "expectSelector": "#race-card[data-race=\"1\"][data-state=\"waiting\"] [data-snail=\"cycle_o\"]",
+      "expectSelector": "#race-card[data-race=\"1\"][data-state=\"waiting\"] [data-snail=\"cycle_o\"] [data-pattern=\"solid\"]",
       "visual": true,
       "impact": [
         "public/index.html",
