@@ -207,20 +207,35 @@
     // Snails are listed alphabetically by name (case-insensitive).
     (function () {
       var SNAILS = [
-        { id: 'cycle_o', name: 'Cycle_o', emoji: '🥜', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10', pattern: 'solid', patternRing: '' },
-        { id: 'drea', name: 'Drea', emoji: '🧇', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10', pattern: 'dotted', patternRing: 'border-2 border-dotted border-pink-400' },
-        { id: 'evan', name: 'Evan', emoji: '🌰', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10', pattern: 'striped', patternRing: 'border-2 border-teal-400 text-teal-400' },
-        { id: 'lucas', name: 'Lucas', emoji: '🥕', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10', pattern: 'double', patternRing: 'border-4 border-double border-orange-400' },
-        { id: 'scradio', name: 'Scradio', emoji: '🪨', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10', pattern: 'checkered', patternRing: 'border-2 border-slate-300 text-slate-300' },
-        { id: 'snait', name: 'Snait', emoji: '🍪', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10', pattern: 'dashed', patternRing: 'border-2 border-dashed border-sky-400' }
+        { id: 'cycle_o', name: 'Cycle_o', badge: 'bg-lime-500/20 ring-1 ring-lime-400/50', chip: 'text-lime-300 bg-lime-500/10', pattern: 'solid', patternRing: '' },
+        { id: 'drea', name: 'Drea', badge: 'bg-pink-500/20 ring-1 ring-pink-400/50', chip: 'text-pink-300 bg-pink-500/10', pattern: 'dotted', patternRing: 'border-2 border-dotted border-pink-400' },
+        { id: 'evan', name: 'Evan', badge: 'bg-teal-500/20 ring-1 ring-teal-400/50', chip: 'text-teal-300 bg-teal-500/10', pattern: 'striped', patternRing: 'border-2 border-teal-400 text-teal-400' },
+        { id: 'lucas', name: 'Lucas', badge: 'bg-orange-500/20 ring-1 ring-orange-400/50', chip: 'text-orange-300 bg-orange-500/10', pattern: 'double', patternRing: 'border-4 border-double border-orange-400' },
+        { id: 'scradio', name: 'Scradio', badge: 'bg-slate-400/20 ring-1 ring-slate-300/50', chip: 'text-slate-300 bg-slate-400/10', pattern: 'checkered', patternRing: 'border-2 border-slate-300 text-slate-300' },
+        { id: 'snait', name: 'Snait', badge: 'bg-sky-500/20 ring-1 ring-sky-400/50', chip: 'text-sky-300 bg-sky-500/10', pattern: 'dashed', patternRing: 'border-2 border-dashed border-sky-400' }
       ];
 
-      // Shell pattern: a decorative ring/texture layered onto a snail's
-      // existing token circle, in that snail's own accent color (patternRing
-      // reuses the exact hue already in `badge`), so racers are
-      // distinguishable by shape as well as color. Never changes badge,
-      // chip, emoji or name. patternRing is a whole literal class string
-      // (never assembled from parts) so the Tailwind build can see it.
+      // A shared, neutral snail-body silhouette (same for every racer):
+      // a low rounded body/foot tapering to a tail, a raised head, and two
+      // antennae each tipped with a small dot. Sized to fill its token box
+      // (w-full h-full). Only the shell (layered on top, see snailToken)
+      // varies per racer.
+      var SNAIL_BODY_SVG =
+        '<svg viewBox="0 0 24 24" class="w-full h-full fill-stone-300" aria-hidden="true">' +
+        '<path d="M3 20c-.8 0-1.5-.7-1.5-1.5S2.2 17 3 17c1 0 1-1 2.2-1h9.6c1.1 0 2 .9 2 2s-.9 2-2 2H3z"/>' +
+        '<circle cx="17.3" cy="15.3" r="2.2"/>' +
+        '<path d="M16.6 13.4 15 9.6" fill="none" stroke-width="1.1" stroke-linecap="round" class="stroke-stone-300"/>' +
+        '<circle cx="14.7" cy="8.8" r="0.9"/>' +
+        '<path d="M18.4 13.6 20.3 10.2" fill="none" stroke-width="1.1" stroke-linecap="round" class="stroke-stone-300"/>' +
+        '<circle cx="20.6" cy="9.5" r="0.9"/>' +
+        '</svg>';
+
+      // Shell pattern: a decorative ring/texture applied to a snail's shell
+      // element, in that snail's own accent color (patternRing reuses the
+      // exact hue already in `badge`), so racers are distinguishable by
+      // shape as well as color. Never changes badge, chip or name.
+      // patternRing is a whole literal class string (never assembled from
+      // parts) so the Tailwind build can see it.
       function applyPattern(el, s) {
         var pattern = s.pattern || 'solid';
         if (s.patternRing) el.className += ' ' + s.patternRing;
@@ -233,12 +248,16 @@
         el.setAttribute('data-pattern', pattern);
       }
 
-      // Builds a snail's circular avatar token (picker row, race lane,
-      // winner banner, Your Derby summary): same badge + emoji as always,
-      // plus its shell pattern layered on the same element.
+      // Builds a snail's avatar token (picker row, race lane, winner banner,
+      // Your Derby summary): the shared neutral body illustration, with a
+      // smaller colored, patterned "shell" circle (same badge + pattern as
+      // always) layered on its upper-back corner, like a real shell.
       function snailToken(s, sizeCls) {
-        var el = node('span', sizeCls + ' rounded-full flex items-center justify-center ' + s.badge, s.emoji);
-        applyPattern(el, s);
+        var el = node('span', sizeCls + ' relative block');
+        el.innerHTML = SNAIL_BODY_SVG;
+        var shell = node('span', 'absolute top-0 right-0 w-3/5 h-3/5 rounded-full ' + s.badge);
+        applyPattern(shell, s);
+        el.appendChild(shell);
         return el;
       }
 
@@ -327,7 +346,7 @@
 
       function snailOf(id) {
         for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i];
-        return { id: id, name: id, emoji: '🐌', badge: 'bg-zinc-800', pattern: 'solid', patternRing: '' };
+        return { id: id, name: id, badge: 'bg-zinc-800', pattern: 'solid', patternRing: '' };
       }
 
       function race(n) {
@@ -691,7 +710,7 @@
         resultEl.appendChild(head);
 
         var mineRow = node('div', 'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2 ' + (res.won ? 'border-violet-500/60 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950'));
-        var who = node('span', 'text-sm text-zinc-300 text-left', 'You picked: ' + mine.emoji + ' ' + mine.name);
+        var who = node('span', 'text-sm text-zinc-300 text-left', 'You picked: ' + mine.name);
         who.setAttribute('data-result-pick', res.pick);
         mineRow.appendChild(who);
         var out = node('div', 'flex items-center gap-2');
