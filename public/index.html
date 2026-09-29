@@ -739,12 +739,12 @@
       }
 
       // The share message. Only numbers already on screen, the personality
-      // label and the app's own address, never the query string (it
-      // carries the platform token).
+      // label and text, and the app's own address, never the query string
+      // (it carries the platform token).
       function shareText(sum) {
         var n = derby.racesPerDerby;
         return '🐌 I finished today\'s Snail Derby! ' + n + ' / ' + n + ' RACES · $NAIL ' + derby.total +
-          (sum ? ' · ' + sum.label : '') + '. Pick your snails: ' + location.origin + '/';
+          (sum ? ' · ' + sum.label + '. ' + sum.text : '') + ' Pick your snails: ' + location.origin + '/';
       }
 
       function copyText(text) {
