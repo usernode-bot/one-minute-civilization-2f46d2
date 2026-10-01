@@ -649,6 +649,7 @@
             r.result = { pick: res.pick, winner: res.winner, won: res.won, nail: res.nail };
             derby.total = res.total;
             derby.lifetimeTotal = res.lifetimeTotal;
+            derby.yesterdayTotal = res.yesterdayTotal;
             derby.currentRace = res.nextRace;
             picked = res.pick;
             // The score is saved: the board can update while the snails run.
@@ -934,9 +935,16 @@
         tot.appendChild(node('span', 'text-zinc-300', 'TOTAL'));
         tot.appendChild(node('span', 'text-right text-zinc-100', '$NAIL ' + total));
         logEl.appendChild(tot);
+        // What the player earned in yesterday's derby, kept after the reset.
+        var yesterday = derby && typeof derby.yesterdayTotal === 'number' ? derby.yesterdayTotal : 0;
+        var yest = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1');
+        yest.setAttribute('data-yesterday', String(yesterday));
+        yest.appendChild(node('span', 'text-zinc-500', 'YESTERDAY'));
+        yest.appendChild(node('span', 'text-right text-zinc-500', '$NAIL ' + yesterday));
+        logEl.appendChild(yest);
         // Sums every $NAIL the player has ever earned, across every day's
-        // derby. Unlike TOTAL, this one never resets: it's the running proof
-        // that yesterday's races still count.
+        // derby and every key they raced under, from the stored races.
+        // Unlike TOTAL, this one never resets.
         var lifetime = derby && typeof derby.lifetimeTotal === 'number' ? derby.lifetimeTotal : 0;
         var life = node('li', 'grid grid-cols-[1fr_auto] gap-3 pt-1');
         life.setAttribute('data-lifetime', String(lifetime));
