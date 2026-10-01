@@ -510,6 +510,39 @@
         trackEl.setAttribute('data-phase', phase);
       }
 
+      // Start sound, synthesised with Web Audio (no asset). The context is
+      // created and resumed inside the Run click so autoplay rules allow it;
+      // without Web Audio the race simply runs silently.
+      var audioCtx = null;
+      function unlockAudio() {
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          if (!audioCtx) audioCtx = new AC();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (e) { audioCtx = null; }
+      }
+      // A short beep for 3, 2, 1 and a longer, higher tone for GO.
+      function beep(go) {
+        if (!audioCtx || audioCtx.state === 'closed') return;
+        try {
+          var t = audioCtx.currentTime;
+          var len = go ? 0.45 : 0.14;
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.type = go ? 'square' : 'sine';
+          osc.frequency.setValueAtTime(go ? 880 : 520, t);
+          if (go) osc.frequency.linearRampToValueAtTime(1320, t + 0.08);
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(go ? 0.12 : 0.18, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + len + 0.02);
+        } catch (e) {}
+      }
+
       // 3, 2, 1, GO while the server settles the race. If it is slow, every
       // snail creeps forward together (up to 15% of the track) so nobody
       // leads before the result is known.
@@ -527,6 +560,7 @@
           }
           var word = seq[i++];
           countText.textContent = word;
+          beep(word === 'GO!');
           countText.className = 'font-mono text-6xl font-bold ' + (word === 'GO!' ? 'text-violet-300' : 'text-zinc-100');
           if (!REDUCED && countText.animate) {
             countText.animate(
@@ -584,6 +618,7 @@
 
       function run() {
         if (state !== 'selected' || !derby) return;
+        unlockAudio();
         var id = ++runId;
         var raceNo = shown;
         state = 'racing';
