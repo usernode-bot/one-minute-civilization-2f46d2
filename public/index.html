@@ -82,59 +82,6 @@
       Six snails. Eight races. Pick your winners, earn $NAIL points, and discover what your choices say about you.
     </p>
 
-    <section id="leaderboard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <div>
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
-          <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
-        </div>
-        <p class="text-xs text-zinc-400">Today's top scores</p>
-      </div>
-
-      <table id="leaderboard-table" class="hidden w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
-            <th class="py-2 pr-2 font-medium w-8">#</th>
-            <th class="py-2 pr-2 font-medium">Player</th>
-            <th class="py-2 font-medium text-right">$NAIL</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-rows"></tbody>
-      </table>
-
-      <ol id="leaderboard-list" class="hidden flex-col"></ol>
-
-      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
-
-      <div id="leaderboard-you" data-your-rank="" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-0.5">
-            <span class="text-xs text-zinc-500">Your Rank</span>
-            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">·</span>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="text-xs text-zinc-500">Your Score</span>
-            <span id="your-score" class="font-mono tabular-nums text-base font-bold text-zinc-100">0 $NAIL</span>
-          </div>
-        </div>
-        <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
-      </div>
-
-      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
-    </section>
-
-    <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <div>
-        <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
-        <p class="text-xs text-violet-400 font-medium">Free · 8 Races · 6 Snails</p>
-      </div>
-      <p class="text-sm leading-relaxed text-zinc-300">
-        Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard.
-      </p>
-      <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
-      <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
-    </section>
-
     <section id="race-card" data-state="waiting" data-stage="pick" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
       <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
         <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
@@ -178,6 +125,59 @@
       </div>
 
       <div id="derby-summary" class="hidden flex-col gap-4" aria-live="polite"></div>
+    </section>
+
+    <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <div>
+        <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
+        <p class="text-xs text-violet-400 font-medium">Free · 8 Races · 6 Snails</p>
+      </div>
+      <p class="text-sm leading-relaxed text-zinc-300">
+        Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard.
+      </p>
+      <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
+      <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
+    </section>
+
+    <section id="leaderboard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+      <div>
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
+          <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
+        </div>
+        <p class="text-xs text-zinc-400">Today's top scores</p>
+      </div>
+
+      <table id="leaderboard-table" class="hidden w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
+            <th class="py-2 pr-2 font-medium w-8">#</th>
+            <th class="py-2 pr-2 font-medium">Player</th>
+            <th class="py-2 font-medium text-right">$NAIL</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-rows"></tbody>
+      </table>
+
+      <ol id="leaderboard-list" class="hidden flex-col"></ol>
+
+      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
+
+      <div id="leaderboard-you" data-your-rank="" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs text-zinc-500">Your Rank</span>
+            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">·</span>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs text-zinc-500">Your Score</span>
+            <span id="your-score" class="font-mono tabular-nums text-base font-bold text-zinc-100">0 $NAIL</span>
+          </div>
+        </div>
+        <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
+      </div>
+
+      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
     </section>
   </main>
 
