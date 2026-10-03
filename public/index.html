@@ -120,6 +120,14 @@
         <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
       </div>
 
+      <div id="snail-standings" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
+        <div>
+          <h3 class="text-xs font-bold tracking-widest text-zinc-400">SNAIL STANDINGS</h3>
+          <p class="text-xs text-zinc-400">All-time wins</p>
+        </div>
+        <ol id="standings-rows" class="flex flex-col"></ol>
+      </div>
+
       <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
     </section>
 
@@ -260,6 +268,11 @@
         el.appendChild(shell);
         return el;
       }
+
+      // The leaderboard script (below) renders the Snail Standings with the
+      // same roster and token builder as the Race Card.
+      window.snailDerby.snails = SNAILS;
+      window.snailDerby.snailToken = snailToken;
 
       var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_7rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
       var ROW_ON = ' ring-2 ring-violet-400 border-violet-500/70 bg-violet-500/15';
@@ -1099,6 +1112,39 @@
       // Daily Derby Leaderboard. The server ranks and marks the viewer's own
       // row (isYou); this only renders what it sends.
       var MEDALS = ['🥇', '🥈', '🥉'];
+
+      // Snail Standings: races won per snail, all-time, across every player.
+      // Rendered like a row of the "Your Derby" list, with the player board's
+      // medal-and-rank column.
+      var standEl = document.getElementById('snail-standings');
+      var standRowsEl = document.getElementById('standings-rows');
+      var SNAILS = window.snailDerby.snails || [];
+      var snailToken = window.snailDerby.snailToken;
+      var snailById = {};
+      SNAILS.forEach(function (s) { snailById[s.id] = s; });
+
+      function renderStandings(standings) {
+        if (!snailToken) return;
+        standRowsEl.textContent = '';
+        standings.forEach(function (row, i) {
+          var s = snailById[row.id];
+          if (!s) return;
+          var li = node('li', 'flex items-center gap-3 py-1');
+          li.setAttribute('data-standings-snail', row.id);
+          li.setAttribute('data-wins', String(row.wins));
+          li.appendChild(node('span', 'w-6 shrink-0 text-center font-mono tabular-nums text-zinc-400', MEDALS[i] || String(i + 1)));
+          var dim = row.wins ? 'text-zinc-100' : 'text-zinc-500';
+          var who = node('span', 'flex flex-1 min-w-0 items-center gap-2 ' + dim);
+          who.appendChild(snailToken(s, 'w-7 h-7 text-sm'));
+          who.appendChild(node('span', 'font-medium truncate', s.name));
+          li.appendChild(who);
+          li.appendChild(node('span', 'shrink-0 font-mono tabular-nums text-sm font-bold ' + dim,
+            row.wins + (row.wins === 1 ? ' win' : ' wins')));
+          standRowsEl.appendChild(li);
+        });
+        standEl.className = 'flex border-t border-zinc-800 pt-3 flex-col gap-2';
+      }
+
       var table = document.getElementById('leaderboard-table');
       var rowsEl = document.getElementById('leaderboard-rows');
       var listEl = document.getElementById('leaderboard-list');
@@ -1205,12 +1251,23 @@
       }
 
       function loadBoard() {
-        return fetch('/api/leaderboard' + query, { headers: authHeaders() })
+        // Both boards refresh together. The standings fetch is non-fatal: on
+        // failure it resolves to null and the last good standings stay, so a
+        // standings-only problem never breaks the player board. The block
+        // stays hidden until the first successful standings load.
+        var board = fetch('/api/leaderboard' + query, { headers: authHeaders() })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+        var standings = fetch('/api/derby/standings', { headers: authHeaders() })
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-          .then(function (board) {
+          .then(function (d) { return d.standings; })
+          .catch(function () { return null; });
+        return Promise.all([board, standings])
+          .then(function (all) {
             loaded = true;
-            if (board.pollMs) pollMs = board.pollMs;
-            render(board);
+            var boardData = all[0];
+            if (boardData.pollMs) pollMs = boardData.pollMs;
+            render(boardData);
+            if (all[1]) renderStandings(all[1]);
             document.getElementById('leaderboard').setAttribute('data-loaded', '');
           })
           .catch(function () {

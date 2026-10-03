@@ -85,6 +85,21 @@
       "expectSelector": "#leaderboard[data-loaded]"
     },
     {
+      "name": "Snail Standings lists all six snails with their all-time wins",
+      "path": "/",
+      "expectSelector": "#snail-standings [data-standings-snail=\"snait\"][data-wins]",
+      "impact": [
+        "public/index.html",
+        "server.js",
+        "snail-standings.js"
+      ]
+    },
+    {
+      "name": "Snail Standings shows the All-time wins subtitle",
+      "path": "/",
+      "expectText": "All-time wins"
+    },
+    {
       "id": "home.race-card",
       "name": "Race Card shows six snails waiting for a pick",
       "path": "/",

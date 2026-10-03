@@ -12,6 +12,7 @@ const {
   nailForOdds,
 } = require('./nail-config');
 const { yesterdayDerbyId, nailTotals } = require('./derby-totals');
+const { snailStandings } = require('./snail-standings');
 
 const app = express();
 const DRAIN_MS = 3000;
@@ -446,6 +447,18 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (err) {
     console.warn('leaderboard query failed: ' + err.message);
     res.status(500).json({ error: 'Leaderboard unavailable' });
+  }
+});
+
+// The all-time Snail Standings: races won per snail across every derby day
+// and every player. No demo mode: unlike /api/leaderboard there is no
+// ?demo=1 branch, because the standings exclude the demo derby by design.
+app.get('/api/derby/standings', async (_req, res) => {
+  try {
+    res.json({ standings: await snailStandings(pool, SNAIL_IDS, DEMO_DERBY_ID) });
+  } catch (err) {
+    console.warn('standings query failed: ' + err.message);
+    res.status(500).json({ error: 'Standings unavailable' });
   }
 });
 
