@@ -147,5 +147,8 @@
   "visibility": {
     "build": "private",
     "view": "public"
-  }
+  },
+  "admins": [
+    "banditiaeja"
+  ]
 }
