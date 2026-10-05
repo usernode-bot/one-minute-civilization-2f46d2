@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const S = require('../public/derby-stories.js');
 
 const IDS = ['cycle_o', 'drea', 'evan', 'lucas', 'scradio', 'snait'];
-const NAMES = { cycle_o: 'Cycle_o', drea: 'Drea', evan: 'Evan', lucas: 'Lucas', scradio: 'Scradio', snait: 'Snait' };
+const NAMES = { cycle_o: 'Cyrcle_0', drea: 'Drea', evan: 'Evan', lucas: 'Lucas', scradio: 'Scraido', snait: 'Snait' };
 const TIER = (spd) => (spd >= 8 ? 100 : spd >= 5 ? 150 : 250);
 
 function allLines() {
