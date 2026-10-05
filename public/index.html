@@ -68,6 +68,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐌</text></svg>">
   <link rel="stylesheet" href="/tailwind.css">
   <script src="/usernode-bridge/v1/bridge.js"></script>
+  <link rel="stylesheet" href="/usernode-native/v1/native.css">
+  <script src="/usernode-native/v1/native.js"></script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen overflow-x-clip">
   <header class="border-b border-zinc-800">
@@ -84,7 +86,18 @@
       <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
     </nav>
 
-    <div id="panel-race" role="tabpanel" aria-labelledby="tab-race">
+    <div id="panel-race" role="tabpanel" aria-labelledby="tab-race" class="space-y-4">
+      <section id="how-it-works" class="rounded-2xl border border-zinc-800 bg-zinc-900">
+        <button id="how-open" type="button" aria-haspopup="dialog" class="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-colors hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
+          <span class="min-w-0 flex-1 flex flex-col gap-1">
+            <span class="text-sm font-bold tracking-wide text-zinc-100">HOW IT WORKS</span>
+            <span class="text-xs leading-relaxed text-zinc-400">Pick one of six snails and hit RUN RACE. Faster snails win more often, but long shots earn more $NAIL. Play all 8 races to climb today's leaderboard.</span>
+          </span>
+          <span class="shrink-0 text-xs font-semibold text-violet-300 whitespace-nowrap">Full guide ›</span>
+        </button>
+        <div id="how-inline" class="hidden px-4 pb-4"></div>
+      </section>
+
       <section id="race-card" data-state="waiting" data-stage="pick" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
         <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
           <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
@@ -205,7 +218,8 @@
       }
       window.snailDerby = {
         authHeaders: function () { return token ? { 'x-usernode-token': token } : {}; },
-        loadBoard: null
+        loadBoard: null,
+        rules: null
       };
     })();
   </script>
@@ -250,6 +264,121 @@
       });
 
       show(new URLSearchParams(location.search).get('tab') || 'race');
+    })();
+  </script>
+
+  <template id="how-guide">
+    <div class="flex flex-col gap-4 px-1 pb-2 text-zinc-100">
+      <div>
+        <h2 class="text-lg font-bold tracking-wide">How to play</h2>
+        <p class="text-xs text-violet-400 font-medium">Free · 8 Races · 6 Snails</p>
+      </div>
+      <ol class="flex flex-col gap-3 text-sm leading-relaxed text-zinc-300">
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+          <span><b class="text-zinc-100">Pick a snail.</b> Every race lines up the same six snails, each with a speed (SPD <span data-how-spd>3 to 9</span>) and odds for that race. Tap Pick on the snail you think will win.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+          <span><b class="text-zinc-100">Run the race.</b> Hit RUN RACE. After a 3, 2, 1, GO countdown the snails crawl to the finish line.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+          <span><b class="text-zinc-100">One snail wins.</b> A snail's chance is its speed out of the whole field's speed, so faster snails win more often, but any snail can win. The winner is drawn only when you hit RUN RACE, never ahead of time.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+          <span class="min-w-0 flex-1 flex flex-col gap-2">
+            <span><b class="text-zinc-100">Earn $NAIL.</b> If your snail wins, you earn $NAIL points. The longer its odds, the more you earn. A losing pick earns <span data-how-loss>0</span>.</span>
+            <span data-how-tiers class="hidden flex-col rounded-xl border border-zinc-800 font-mono tabular-nums text-xs"></span>
+          </span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">5</span>
+          <span><b class="text-zinc-100">Finish all 8 races.</b> Hit NEXT RACE after each result. When the eighth race is done you see your Daily Derby summary and your derby personality. A new slate starts at 00:00 UTC.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">6</span>
+          <span><b class="text-zinc-100">Climb the leaderboard.</b> Your $NAIL for the day counts on the Daily Derby Leaderboard. Players with a linked wallet are listed, and on a tie the player who reached the score first ranks higher. The History tab keeps your race log, yesterday's score and your all-time total.</span>
+        </li>
+      </ol>
+      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">The Daily Derby is free. $NAIL is a game score only. It has no cash value.</p>
+      <button type="button" data-how-close class="w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700">Got it</button>
+    </div>
+  </template>
+
+  <script>
+    // How it works: the compact card opens the full guide in a centered
+    // modal (native UI kit; tall content scrolls inside the card, backdrop
+    // tap and Escape close it). The $NAIL tiers and speed range come from the rules
+    // GET /api/derby sends, so the page never repeats nail-config. Without
+    // the kit (standalone), the guide expands inline under the card instead.
+    (function () {
+      var openBtn = document.getElementById('how-open');
+      var inline = document.getElementById('how-inline');
+      var tpl = document.getElementById('how-guide');
+      var modal = null;
+
+      function build() {
+        var el = tpl.content.firstElementChild.cloneNode(true);
+        var rules = window.snailDerby && window.snailDerby.rules;
+        if (rules) {
+          el.querySelector('[data-how-spd]').textContent = rules.spdMin + ' to ' + rules.spdMax;
+          el.querySelector('[data-how-loss]').textContent = String(rules.lossPoints);
+          var tiers = el.querySelector('[data-how-tiers]');
+          rules.nailTiers.forEach(function (t, i) {
+            var odds = t.from == null ? 'Up to ' + t.to
+              : t.to == null ? t.from + ' and up'
+              : t.from + ' to ' + t.to;
+            var row = document.createElement('span');
+            row.className = 'flex items-center justify-between gap-3 px-3 py-2' + (i ? ' border-t border-zinc-800' : '');
+            row.setAttribute('data-how-tier', String(i + 1));
+            var a = document.createElement('span');
+            a.className = 'text-zinc-400';
+            a.textContent = odds;
+            var b = document.createElement('span');
+            b.className = 'font-bold text-violet-300';
+            b.textContent = '+' + t.points + ' $NAIL';
+            row.appendChild(a);
+            row.appendChild(b);
+            tiers.appendChild(row);
+          });
+          tiers.classList.remove('hidden');
+          tiers.classList.add('flex');
+        }
+        return el;
+      }
+
+      function close() {
+        if (modal) modal.dismiss();
+        else {
+          inline.classList.add('hidden');
+          inline.textContent = '';
+          openBtn.setAttribute('aria-expanded', 'false');
+        }
+      }
+
+      openBtn.addEventListener('click', function () {
+        var el = build();
+        el.querySelector('[data-how-close]').addEventListener('click', close);
+        if (window.unNative && window.unNative.presentModal) {
+          modal = window.unNative.presentModal({
+            contentEl: el,
+            onDismiss: function () { modal = null; openBtn.focus({ preventScroll: true }); }
+          });
+          if (modal && modal.el) {
+            modal.el.setAttribute('id', 'how-guide-modal');
+            modal.el.setAttribute('aria-label', 'How to play');
+          }
+        } else if (inline.classList.contains('hidden')) {
+          inline.textContent = '';
+          inline.appendChild(el);
+          inline.classList.remove('hidden');
+          openBtn.setAttribute('aria-expanded', 'true');
+        } else {
+          close();
+        }
+      });
     })();
   </script>
 
@@ -497,6 +626,7 @@
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
           .then(function (d) {
             derby = d;
+            window.snailDerby.rules = d.rules || null;
             picked = null;
             error = '';
             if (d.currentRace) {
