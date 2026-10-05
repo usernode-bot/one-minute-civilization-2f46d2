@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { derbyIdFor, yesterdayDerbyId, nailTotals } = require('../derby-totals');
+const { derbyIdFor, yesterdayDerbyId, nailTotals, claimRaces } = require('../derby-totals');
 
 test('yesterday is the previous UTC day, across month and year ends', () => {
   assert.strictEqual(yesterdayDerbyId(new Date('2026-10-01T00:00:00Z')), 'daily-2026-09-30');
@@ -30,6 +30,7 @@ test('totals sum every past day and every key the player raced under', { skip: !
         winner_snail TEXT,
         nail_awarded INTEGER,
         resolved_at TIMESTAMPTZ,
+        user_id TEXT,
         PRIMARY KEY (derby_id, player_key, race_number)
       )`);
     const race = (derby, key, n, nail) => pool.query(
@@ -52,16 +53,34 @@ test('totals sum every past day and every key the player raced under', { skip: !
     await race('staging-demo', 'ut1wallet', 1, 999);
 
     assert.deepStrictEqual(
-      await nailTotals(pool, ['ut1wallet', 'user:7'], 'daily-2026-09-30', 'staging-demo'),
+      await nailTotals(pool, ['ut1wallet', 'user:7'], '7', 'daily-2026-09-30', 'staging-demo'),
       { lifetimeTotal: 600, yesterdayTotal: 150 }
     );
     assert.deepStrictEqual(
-      await nailTotals(pool, ['user:7'], 'daily-2026-09-29', 'staging-demo'),
+      await nailTotals(pool, ['user:7'], '7', 'daily-2026-09-29', 'staging-demo'),
       { lifetimeTotal: 350, yesterdayTotal: 350 }
     );
     assert.deepStrictEqual(
-      await nailTotals(pool, ['user:404'], 'daily-2026-09-30', 'staging-demo'),
+      await nailTotals(pool, ['user:404'], '404', 'daily-2026-09-30', 'staging-demo'),
       { lifetimeTotal: 0, yesterdayTotal: 0 }
+    );
+
+    // The player claims their races, then links a different wallet and
+    // races today under it: every earlier day still counts.
+    await claimRaces(pool, ['ut1wallet', 'user:7'], '7');
+    await pool.query(
+      `INSERT INTO derby_races
+         (derby_id, player_key, race_number, snails, picked_snail, winner_snail, nail_awarded, resolved_at, user_id)
+       VALUES ('daily-2026-10-02', 'ut1newwallet', 1, '[]', 'drea', 'drea', 50, now(), '7')`
+    );
+    assert.deepStrictEqual(
+      await nailTotals(pool, ['ut1newwallet', 'user:7'], '7', 'daily-2026-10-01', 'staging-demo'),
+      { lifetimeTotal: 650, yesterdayTotal: 100 }
+    );
+    // Claiming never takes another player's races.
+    assert.deepStrictEqual(
+      await nailTotals(pool, ['ut1other'], '8', 'daily-2026-09-30', 'staging-demo'),
+      { lifetimeTotal: 250, yesterdayTotal: 250 }
     );
   } finally {
     await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`).catch(() => {});
