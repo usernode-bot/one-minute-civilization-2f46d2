@@ -12,7 +12,7 @@ const {
   SPD_MAX,
   nailForOdds,
 } = require('./nail-config');
-const { yesterdayDerbyId, nailTotals } = require('./derby-totals');
+const { yesterdayDerbyId, nailTotals, claimRaces } = require('./derby-totals');
 
 const app = express();
 const DRAIN_MS = 3000;
@@ -50,9 +50,14 @@ function playerKeys(req) {
   return keys;
 }
 
+// The platform user id as stored on derby_races.user_id.
+function userIdOf(req) {
+  return String(req.user.id);
+}
+
 // The player's lifetime and yesterday's $NAIL, from their stored races.
 function totalsFor(db, req) {
-  return nailTotals(db, playerKeys(req), yesterdayDerbyId(new Date()), DEMO_DERBY_ID);
+  return nailTotals(db, playerKeys(req), userIdOf(req), yesterdayDerbyId(new Date()), DEMO_DERBY_ID);
 }
 
 // One race's field: a speed gene per snail and fair odds with no house.
@@ -250,12 +255,15 @@ app.get('/api/derby', async (req, res) => {
     await ensureDerby(pool, derbyId, date);
     for (let n = 1; n <= RACES_PER_DERBY; n++) {
       await pool.query(
-        `INSERT INTO derby_races (derby_id, player_key, race_number, snails)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO derby_races (derby_id, player_key, race_number, snails, user_id)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (derby_id, player_key, race_number) DO NOTHING`,
-        [derbyId, key, n, JSON.stringify(makeSlate())]
+        [derbyId, key, n, JSON.stringify(makeSlate()), userIdOf(req)]
       );
     }
+    // Races stored before user ids were recorded become this player's for
+    // good, so a later wallet change cannot hide them from the totals.
+    await claimRaces(pool, playerKeys(req), userIdOf(req));
     const { rows } = await pool.query(
       `SELECT * FROM derby_races WHERE derby_id = $1 AND player_key = $2
         ORDER BY race_number`,
@@ -587,6 +595,18 @@ async function migrate() {
   // derby_races, so they need an index that leads with player_key.
   await pool.query(
     'CREATE INDEX IF NOT EXISTS derby_races_player_idx ON derby_races (player_key, derby_id)'
+  );
+  // The platform user id who ran the race. player_key is the wallet linked
+  // at the time, so without this a wallet change would orphan past races.
+  // Older rows are stamped here (no-wallet keys) or on the player's next
+  // visit (wallet keys, see claimRaces).
+  await pool.query('ALTER TABLE derby_races ADD COLUMN IF NOT EXISTS user_id TEXT');
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS derby_races_user_idx ON derby_races (user_id)'
+  );
+  await pool.query(
+    `UPDATE derby_races SET user_id = substring(player_key FROM 6)
+      WHERE user_id IS NULL AND player_key LIKE 'user:%'`
   );
   // No longer read or written: it missed races run before it existed and
   // races run before a wallet was linked. Lifetime $NAIL is now summed from

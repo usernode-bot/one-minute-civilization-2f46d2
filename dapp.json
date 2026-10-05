@@ -37,6 +37,11 @@
       "expectSelector": "#derby-log [data-lifetime]"
     },
     {
+      "name": "Race tab shows the ALL-TIME $NAIL total next to the race progress",
+      "path": "/",
+      "expectSelector": "#race-progress [data-progress-alltime][data-lifetime]"
+    },
+    {
       "name": "Daily Derby card shows YESTERDAY $NAIL",
       "path": "/",
       "expectSelector": "#derby-log [data-yesterday]"
