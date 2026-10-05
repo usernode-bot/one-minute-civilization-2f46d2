@@ -78,107 +78,119 @@
   </header>
 
   <main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
-    <p class="text-sm leading-relaxed text-zinc-300">
-      Six snails. Eight races. Pick your winners, earn $NAIL points, and discover what your choices say about you.
-    </p>
+    <nav id="tabs" role="tablist" aria-label="Snail Derby sections" class="grid grid-cols-3 gap-1 p-1 rounded-xl border border-zinc-800 bg-zinc-900">
+      <button id="tab-race" type="button" role="tab" data-tab="race" aria-controls="panel-race" aria-selected="true" class="h-10 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white">Race</button>
+      <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leaderboard</button>
+      <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
+    </nav>
 
-    <section id="leaderboard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <div>
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
-          <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
-        </div>
-        <p class="text-xs text-zinc-400">Today's top scores</p>
-      </div>
-
-      <table id="leaderboard-table" class="hidden w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
-            <th class="py-2 pr-2 font-medium w-8">#</th>
-            <th class="py-2 pr-2 font-medium">Player</th>
-            <th class="py-2 font-medium text-right">$NAIL</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-rows"></tbody>
-      </table>
-
-      <ol id="leaderboard-list" class="hidden flex-col"></ol>
-
-      <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
-
-      <div id="leaderboard-you" data-your-rank="" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-0.5">
-            <span class="text-xs text-zinc-500">Your Rank</span>
-            <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">·</span>
+    <div id="panel-race" role="tabpanel" aria-labelledby="tab-race">
+      <section id="race-card" data-state="waiting" data-stage="pick" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
+            <span data-progress-race class="text-zinc-100">RACE 1 / 8</span>
           </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="text-xs text-zinc-500">Your Score</span>
-            <span id="your-score" class="font-mono tabular-nums text-base font-bold text-zinc-100">0 $NAIL</span>
+          <ol id="race-steps" class="grid grid-cols-8 gap-1" aria-label="Race progress"></ol>
+        </div>
+
+        <div id="race-head" class="flex items-center justify-between gap-3">
+          <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
+          <span id="race-stage" class="shrink-0 text-[11px] font-bold tracking-widest rounded-full px-2.5 py-1 whitespace-nowrap border border-violet-500/60 text-violet-300">PICK A SNAIL</span>
+        </div>
+
+        <div id="race-field">
+          <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
+            <span class="font-medium">Snail</span>
+            <span class="font-medium text-right">Speed</span>
+            <span class="font-medium text-right">Odds</span>
+            <span></span>
+          </div>
+          <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
+        </div>
+
+        <div id="race-track" data-phase="" class="hidden relative">
+          <div class="grid grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr] gap-2 pb-1">
+            <span></span>
+            <span data-finish class="text-right text-[11px] font-bold tracking-widest text-zinc-300">🏁 FINISH</span>
+          </div>
+          <ul id="race-lanes" class="flex flex-col gap-1.5"></ul>
+          <div id="race-countdown" class="hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none" aria-live="assertive">
+            <span id="race-countdown-text" class="font-mono text-6xl font-bold text-zinc-100"></span>
           </div>
         </div>
-        <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
-      </div>
 
-      <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
-    </section>
+        <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2 text-center" aria-live="polite"></div>
 
-    <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <div>
-        <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
-        <p class="text-xs text-violet-400 font-medium">Free · 8 Races · 6 Snails</p>
-      </div>
+        <div id="race-controls" class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
+          <p id="race-confirm" class="hidden text-sm font-semibold text-violet-300" aria-live="polite"></p>
+          <button id="run-race" type="button" disabled class="w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">RUN RACE</button>
+          <p id="race-hint" class="text-xs text-zinc-500 text-center">Pick a snail to run the race.</p>
+        </div>
+
+        <div id="derby-summary" class="hidden flex-col gap-4" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="panel-leaderboard" role="tabpanel" aria-labelledby="tab-leaderboard" hidden>
+      <section id="leaderboard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div>
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg font-bold tracking-wide">DAILY DERBY LEADERBOARD</h2>
+            <span class="shrink-0 text-[11px] font-medium text-violet-400 border border-violet-500/40 rounded-full px-2 py-0.5">✓ Verified</span>
+          </div>
+          <p class="text-xs text-zinc-400">Today's top scores</p>
+        </div>
+
+        <table id="leaderboard-table" class="hidden w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
+              <th class="py-2 pr-2 font-medium w-8">#</th>
+              <th class="py-2 pr-2 font-medium">Player</th>
+              <th class="py-2 font-medium text-right">$NAIL</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-rows"></tbody>
+        </table>
+
+        <ol id="leaderboard-list" class="hidden flex-col"></ol>
+
+        <p id="leaderboard-empty" class="hidden text-sm text-zinc-400 py-2">No $NAIL scores yet today.</p>
+
+        <div id="leaderboard-you" data-your-rank="" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-xs text-zinc-500">Your Rank</span>
+              <span id="your-rank" class="font-mono tabular-nums text-base font-bold text-zinc-100">·</span>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-xs text-zinc-500">Your Score</span>
+              <span id="your-score" class="font-mono tabular-nums text-base font-bold text-zinc-100">0 $NAIL</span>
+            </div>
+          </div>
+          <p id="your-hint" class="hidden text-xs text-zinc-400"></p>
+        </div>
+
+        <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
+      </section>
+    </div>
+
+    <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden class="space-y-6">
       <p class="text-sm leading-relaxed text-zinc-300">
-        Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard.
+        Six snails. Eight races. Pick your winners, earn $NAIL points, and discover what your choices say about you.
       </p>
-      <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
-      <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
-    </section>
 
-    <section id="race-card" data-state="waiting" data-stage="pick" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-      <div id="race-progress" class="sticky top-0 z-10 -mx-5 -mt-5 px-5 pt-4 pb-3 rounded-t-2xl bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-3 font-mono tabular-nums text-sm font-bold">
-          <span data-progress-race class="text-zinc-100">RACE 1 / 8</span>
+      <section id="daily-derby" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div>
+          <h2 class="text-lg font-bold tracking-wide">DAILY DERBY</h2>
+          <p class="text-xs text-violet-400 font-medium">Free · 8 Races · 6 Snails</p>
         </div>
-        <ol id="race-steps" class="grid grid-cols-8 gap-1" aria-label="Race progress"></ol>
-      </div>
-
-      <div id="race-head" class="flex items-center justify-between gap-3">
-        <h2 id="race-title" class="text-lg font-bold tracking-wide">🏁 Race 1</h2>
-        <span id="race-stage" class="shrink-0 text-[11px] font-bold tracking-widest rounded-full px-2.5 py-1 whitespace-nowrap border border-violet-500/60 text-violet-300">PICK A SNAIL</span>
-      </div>
-
-      <div id="race-field">
-        <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
-          <span class="font-medium">Snail</span>
-          <span class="font-medium text-right">Speed</span>
-          <span class="font-medium text-right">Odds</span>
-          <span></span>
-        </div>
-        <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
-      </div>
-
-      <div id="race-track" data-phase="" class="hidden relative">
-        <div class="grid grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr] gap-2 pb-1">
-          <span></span>
-          <span data-finish class="text-right text-[11px] font-bold tracking-widest text-zinc-300">🏁 FINISH</span>
-        </div>
-        <ul id="race-lanes" class="flex flex-col gap-1.5"></ul>
-        <div id="race-countdown" class="hidden absolute inset-0 items-center justify-center rounded-xl bg-zinc-950/60 pointer-events-none" aria-live="assertive">
-          <span id="race-countdown-text" class="font-mono text-6xl font-bold text-zinc-100"></span>
-        </div>
-      </div>
-
-      <div id="race-result" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2 text-center" aria-live="polite"></div>
-
-      <div id="race-controls" class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
-        <p id="race-confirm" class="hidden text-sm font-semibold text-violet-300" aria-live="polite"></p>
-        <button id="run-race" type="button" disabled class="w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">RUN RACE</button>
-        <p id="race-hint" class="text-xs text-zinc-500 text-center">Pick a snail to run the race.</p>
-      </div>
-
-      <div id="derby-summary" class="hidden flex-col gap-4" aria-live="polite"></div>
-    </section>
+        <p class="text-sm leading-relaxed text-zinc-300">
+          Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard.
+        </p>
+        <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
+        <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
+      </section>
+    </div>
   </main>
 
   <script>
@@ -195,6 +207,49 @@
         authHeaders: function () { return token ? { 'x-usernode-token': token } : {}; },
         loadBoard: null
       };
+    })();
+  </script>
+
+  <script>
+    // Tab bar: Race is the default view; Leaderboard and History each get
+    // their own panel. ?tab=leaderboard|history opens a panel directly, and
+    // switching keeps the URL in step so a reload stays on the same tab.
+    (function () {
+      var TAB = 'h-10 rounded-lg text-sm font-semibold transition-colors ';
+      var TAB_ON = TAB + 'bg-violet-600 text-white';
+      var TAB_OFF = TAB + 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800';
+      var buttons = Array.prototype.slice.call(document.querySelectorAll('#tabs [data-tab]'));
+      var names = buttons.map(function (b) { return b.getAttribute('data-tab'); });
+
+      function show(name, focus) {
+        if (names.indexOf(name) < 0) name = 'race';
+        buttons.forEach(function (b) {
+          var on = b.getAttribute('data-tab') === name;
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+          b.tabIndex = on ? 0 : -1;
+          b.className = on ? TAB_ON : TAB_OFF;
+          document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
+          if (on && focus) b.focus();
+        });
+        try {
+          var url = new URL(location.href);
+          if (name === 'race') url.searchParams.delete('tab');
+          else url.searchParams.set('tab', name);
+          history.replaceState(history.state, '', url.toString());
+        } catch (_) {}
+      }
+
+      buttons.forEach(function (b, i) {
+        b.addEventListener('click', function () { show(b.getAttribute('data-tab')); });
+        b.addEventListener('keydown', function (e) {
+          var step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          show(names[(i + step + names.length) % names.length], true);
+        });
+      });
+
+      show(new URLSearchParams(location.search).get('tab') || 'race');
     })();
   </script>
 

@@ -8,7 +8,7 @@
     {
       "id": "home.daily-derby",
       "name": "Snail Derby home shows the Daily Derby card",
-      "path": "/",
+      "path": "/?tab=history",
       "expectText": "DAILY DERBY",
       "visual": true,
       "impact": [
@@ -18,12 +18,12 @@
     },
     {
       "name": "Daily Derby card shows the current description",
-      "path": "/",
+      "path": "/?tab=history",
       "expectText": "Pick a snail, watch the race, earn $NAIL points, and climb the leaderboard."
     },
     {
       "name": "Daily Derby card shows Free, 8 Races, 6 Snails",
-      "path": "/",
+      "path": "/?tab=history",
       "expectText": "Free · 8 Races · 6 Snails"
     },
     {
@@ -44,7 +44,7 @@
     {
       "id": "home.leaderboard",
       "name": "Daily Derby Leaderboard shows verified $NAIL scores",
-      "path": "/?demo=1",
+      "path": "/?demo=1&tab=leaderboard",
       "expectSelector": "#leaderboard [data-rank=\"10\"]",
       "visual": true,
       "impact": [
@@ -56,12 +56,12 @@
     },
     {
       "name": "Leaderboard shows shortened wallet addresses",
-      "path": "/?demo=1",
+      "path": "/?demo=1&tab=leaderboard",
       "expectText": "ut1sta…0001"
     },
     {
       "name": "Leaderboard header says Today's top scores",
-      "path": "/",
+      "path": "/?tab=leaderboard",
       "expectText": "Today's top scores"
     },
     {
@@ -71,12 +71,12 @@
     },
     {
       "name": "Your Rank panel labels render",
-      "path": "/?demo=1",
+      "path": "/?demo=1&tab=leaderboard",
       "expectText": "Your Rank"
     },
     {
       "name": "Leaderboard is a game score only",
-      "path": "/",
+      "path": "/?tab=leaderboard",
       "expectText": "$NAIL is a game score only"
     },
     {
@@ -139,9 +139,29 @@
       "expectSelector": "#derby-log [data-log-race=\"8\"][data-log-state=\"upcoming\"]"
     },
     {
-      "name": "Leaderboard sits above the Race Card",
+      "name": "Race tab is the default view and shows only the Race Card",
       "path": "/",
-      "expectSelector": "#leaderboard ~ #race-card"
+      "expectSelector": "#tab-race[aria-selected=\"true\"] ~ #tab-leaderboard[aria-selected=\"false\"] ~ #tab-history[aria-selected=\"false\"]"
+    },
+    {
+      "name": "Leaderboard and History panels are hidden on the Race tab",
+      "path": "/",
+      "expectSelector": "#panel-race:not([hidden]) ~ #panel-leaderboard[hidden] ~ #panel-history[hidden]"
+    },
+    {
+      "id": "tabs.leaderboard",
+      "name": "Leaderboard tab shows the leaderboard and hides the Race Card",
+      "path": "/?demo=1&tab=leaderboard",
+      "expectSelector": "#panel-race[hidden] ~ #panel-leaderboard:not([hidden]) #leaderboard[data-loaded]",
+      "visual": true,
+      "impact": [
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "History tab shows the Daily Derby race log",
+      "path": "/?tab=history",
+      "expectSelector": "#panel-history:not([hidden]) #derby-log [data-log-race=\"8\"]"
     }
   ],
   "visibility": {
