@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { LEADERBOARD_SIZE, POLL_MS } = require('./leaderboard-config');
 const {
   RACES_PER_DERBY,
+  NAIL_TIERS,
   LOSS_POINTS,
   SPD_MIN,
   SPD_MAX,
@@ -81,6 +82,27 @@ function drawWinner(snails) {
 
 function formatOdds(tenths) {
   return (tenths / 10).toFixed(1) + '\u00d7';
+}
+
+// The rules the page's "How it works" guide shows, straight from
+// nail-config so the page never repeats them. Each tier is an odds range
+// (`from` / `to` are null at the open ends) and its winning-pick reward.
+function rulesView() {
+  let prev = null;
+  return {
+    spdMin: SPD_MIN,
+    spdMax: SPD_MAX,
+    lossPoints: LOSS_POINTS,
+    nailTiers: NAIL_TIERS.map(t => {
+      const tier = {
+        from: prev === null ? null : formatOdds(prev + 1),
+        to: Number.isFinite(t.maxOddsTenths) ? formatOdds(t.maxOddsTenths) : null,
+        points: t.points,
+      };
+      prev = t.maxOddsTenths;
+      return tier;
+    }),
+  };
 }
 
 // The platform signs user-identity tokens with an RSA private key it never
@@ -250,6 +272,7 @@ app.get('/api/derby', async (req, res) => {
       yesterdayTotal: totals.yesterdayTotal,
       currentRace: current ? current.race_number : null,
       races: rows.map(raceView),
+      rules: rulesView(),
     });
   } catch (err) {
     console.warn('derby query failed: ' + err.message);

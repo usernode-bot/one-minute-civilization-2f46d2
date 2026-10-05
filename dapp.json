@@ -162,6 +162,21 @@
       "name": "History tab shows the Daily Derby race log",
       "path": "/?tab=history",
       "expectSelector": "#panel-history:not([hidden]) #derby-log [data-log-race=\"8\"]"
+    },
+    {
+      "id": "race.how-it-works",
+      "name": "Race tab shows the How it works card with a Full guide button",
+      "path": "/",
+      "expectSelector": "#panel-race:not([hidden]) #how-it-works #how-open[aria-haspopup=\"dialog\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "How it works summary explains the game",
+      "path": "/",
+      "expectText": "Faster snails win more often, but long shots earn more $NAIL."
     }
   ],
   "visibility": {
