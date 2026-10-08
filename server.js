@@ -10,6 +10,16 @@ const {
   LOSS_POINTS,
   SPD_MIN,
   SPD_MAX,
+  STA_MIN,
+  STA_MAX,
+  SPRINT_MULT,
+  SPRINT_DRAIN,
+  EXHAUST_FADE,
+  STAMINA_RECOVERY,
+  EXHAUST_EXIT_RATIO,
+  RACE_SECONDS,
+  sprintSeconds,
+  effectiveTenths,
   nailForOdds,
 } = require('./nail-config');
 const { yesterdayDerbyId, nailTotals, claimRaces } = require('./derby-totals');
@@ -60,29 +70,65 @@ function totalsFor(db, req) {
   return nailTotals(db, playerKeys(req), userIdOf(req), yesterdayDerbyId(new Date()), DEMO_DERBY_ID);
 }
 
-// One race's field: a speed gene per snail and fair odds with no house.
-// A snail's chance is spd / sum(spd), so its odds are sum / spd, kept in
-// integer tenths (9.3x is 93).
+// One race's field: a speed gene and a stamina gene per snail, and fair
+// odds with no house. A snail's chance is its EFFECTIVE speed (what it
+// actually covers once its sprint and its fade are averaged) out of the
+// field's, so its odds are sum / eff, kept in integer tenths (9.3x is 93).
+// The model is deterministic, so the stored effTenths and oddsTenths always
+// agree with the winner drawn below.
 function makeSlate() {
   const spds = SNAIL_IDS.map(() => crypto.randomInt(SPD_MIN, SPD_MAX + 1));
-  const sum = spds.reduce((a, b) => a + b, 0);
+  const stas = SNAIL_IDS.map(() => crypto.randomInt(STA_MIN, STA_MAX + 1));
+  const effs = spds.map((spd, i) => effectiveTenths(spd, stas[i]));
+  const sum = effs.reduce((a, b) => a + b, 0);
   return SNAIL_IDS.map((id, i) => ({
     id,
     spd: spds[i],
-    oddsTenths: Math.round((sum * 10) / spds[i]),
+    sta: stas[i],
+    effTenths: effs[i],
+    oddsTenths: Math.round((sum * 10) / effs[i]),
   }));
 }
 
-// Draw the winner weighted by speed. Integers only, drawn at run time and
-// never stored ahead of the pick.
+// Draw the winner weighted by effective speed. Integers only, drawn at run
+// time and never stored ahead of the pick. A row stored before this model
+// existed has no effTenths, so it falls back to the raw speed it raced on.
+function effOf(s) {
+  return Number.isInteger(s.effTenths) ? s.effTenths : s.spd;
+}
+
 function drawWinner(snails) {
-  const sum = snails.reduce((a, s) => a + s.spd, 0);
+  const sum = snails.reduce((a, s) => a + effOf(s), 0);
   let roll = crypto.randomInt(sum);
   for (const s of snails) {
-    if (roll < s.spd) return s.id;
-    roll -= s.spd;
+    const w = effOf(s);
+    if (roll < w) return s.id;
+    roll -= w;
   }
   return snails[snails.length - 1].id;
+}
+
+// A race stored before the stamina model has no `sta` gene and no effective
+// speed, so its odds were drawn from raw speed alone. Those rows are rebuilt
+// under the new model ONCE, and only while unresolved: a player mid-derby
+// gets the new rules for the races still ahead, while a resolved race keeps
+// the winner and $NAIL already recorded against it.
+function needsSprintModel(snails) {
+  return Array.isArray(snails) && snails.some(s => !Number.isInteger(s.sta));
+}
+
+function upgradeSlate(snails) {
+  const withSta = snails.map(s => ({
+    ...s,
+    sta: Number.isInteger(s.sta) ? s.sta : crypto.randomInt(STA_MIN, STA_MAX + 1),
+  }));
+  const effs = withSta.map(s => effectiveTenths(s.spd, s.sta));
+  const sum = effs.reduce((a, b) => a + b, 0);
+  return withSta.map((s, i) => ({
+    ...s,
+    effTenths: effs[i],
+    oddsTenths: Math.round((sum * 10) / effs[i]),
+  }));
 }
 
 function formatOdds(tenths) {
@@ -97,6 +143,18 @@ function rulesView() {
   return {
     spdMin: SPD_MIN,
     spdMax: SPD_MAX,
+    staMin: STA_MIN,
+    staMax: STA_MAX,
+    sprintMult: SPRINT_MULT,
+    sprintDrain: SPRINT_DRAIN,
+    exhaustFade: EXHAUST_FADE,
+    staminaRecovery: STAMINA_RECOVERY,
+    exhaustExitRatio: EXHAUST_EXIT_RATIO,
+    // Sprint seconds at the smallest and largest stamina gene, so the guide
+    // can say how long a snail holds a sprint without repeating the maths.
+    sprintMinSeconds: sprintSeconds(STA_MIN),
+    sprintMaxSeconds: sprintSeconds(STA_MAX),
+    raceSeconds: RACE_SECONDS,
     lossPoints: LOSS_POINTS,
     nailTiers: NAIL_TIERS.map(t => {
       const tier = {
@@ -231,6 +289,7 @@ function raceView(r) {
     snails: r.snails.map(s => ({
       id: s.id,
       spd: s.spd,
+      sta: s.sta,
       odds: formatOdds(s.oddsTenths),
       nail: nailForOdds(s.oddsTenths),
     })),
@@ -269,6 +328,21 @@ app.get('/api/derby', async (req, res) => {
         ORDER BY race_number`,
       [derbyId, key]
     );
+    // Bring this player's unresolved races up to the stamina model, once
+    // each. The UPDATE's own guard (still unresolved, still missing sta)
+    // makes a concurrent tab a no-op rather than a double write.
+    for (const r of rows) {
+      if (r.resolved_at || !needsSprintModel(r.snails)) continue;
+      const upgraded = upgradeSlate(r.snails);
+      const upd = await pool.query(
+        `UPDATE derby_races SET snails = $4
+          WHERE derby_id = $1 AND player_key = $2 AND race_number = $3
+            AND resolved_at IS NULL
+            AND NOT (snails -> 0 ? 'sta')`,
+        [derbyId, key, r.race_number, JSON.stringify(upgraded)]
+      );
+      if (upd.rowCount === 1) r.snails = upgraded;
+    }
     const totals = await totalsFor(pool, req);
     const current = rows.find(r => !r.resolved_at);
     res.json({
