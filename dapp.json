@@ -113,6 +113,21 @@
       "expectText": "Lucas"
     },
     {
+      "name": "Race Card shows a Stamina value for every snail",
+      "path": "/",
+      "expectSelector": "#race-snails [data-snail=\"drea\"] [data-sta]"
+    },
+    {
+      "name": "Race Card header names the Stamina column",
+      "path": "/",
+      "expectText": "Stamina"
+    },
+    {
+      "name": "Race Card shows an energy bar in every lane",
+      "path": "/",
+      "expectSelector": "#race-lanes [data-lane] [data-energy]"
+    },
+    {
       "id": "home.derby-progress",
       "name": "Race Card shows PICK A SNAIL with an eight-step progress strip",
       "path": "/",

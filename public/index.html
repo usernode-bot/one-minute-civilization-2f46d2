@@ -113,9 +113,10 @@
         </div>
 
         <div id="race-field">
-          <div class="hidden sm:grid grid-cols-[1fr_4.5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
+          <div class="hidden sm:grid grid-cols-[1fr_4.5rem_5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
             <span class="font-medium">Snail</span>
             <span class="font-medium text-right">Speed</span>
+            <span class="font-medium text-right">Stamina</span>
             <span class="font-medium text-right">Odds</span>
             <span></span>
           </div>
@@ -285,21 +286,25 @@
         </li>
         <li class="flex gap-3">
           <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span>
-          <span><b class="text-zinc-100">One snail wins.</b> A snail's chance is its speed out of the whole field's speed, so faster snails win more often, but any snail can win. The winner is drawn only when you hit RUN RACE, never ahead of time.</span>
+          <span><b class="text-zinc-100">One snail wins.</b> A snail's chance is its effective speed out of the whole field's effective speed, so faster snails win more often, but any snail can win. The winner is drawn only when you hit RUN RACE, never ahead of time.</span>
         </li>
         <li class="flex gap-3">
           <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+          <span><b class="text-zinc-100">Mind the sprint.</b> Every snail sprints off the line at <span data-how-sprint-mult>1.5</span> times its speed, but that burns energy. A snail with more stamina (STA <span data-how-sta>3 to 9</span>) holds the sprint longer, up to <span data-how-sprint-max>4.5</span> seconds. Once the tank is empty it drops to about half speed for the rest of the race, so a fast snail with a small tank can be caught.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">5</span>
           <span class="min-w-0 flex-1 flex flex-col gap-2">
             <span><b class="text-zinc-100">Earn $NAIL.</b> If your snail wins, you earn $NAIL points. The longer its odds, the more you earn. A losing pick earns <span data-how-loss>0</span>.</span>
             <span data-how-tiers class="hidden flex-col rounded-xl border border-zinc-800 font-mono tabular-nums text-xs"></span>
           </span>
         </li>
         <li class="flex gap-3">
-          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">5</span>
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">6</span>
           <span><b class="text-zinc-100">Finish all 8 races.</b> Hit NEXT RACE after each result. When the eighth race is done you see your Daily Derby summary and your derby personality. A new slate starts at 00:00 UTC.</span>
         </li>
         <li class="flex gap-3">
-          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">6</span>
+          <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">7</span>
           <span><b class="text-zinc-100">Climb the leaderboard.</b> Your $NAIL for the day counts on the Daily Derby Leaderboard. Players with a linked wallet are listed, and on a tie the player who reached the score first ranks higher. The History tab keeps your race log, yesterday's score and your all-time total.</span>
         </li>
       </ol>
@@ -326,6 +331,12 @@
         if (rules) {
           el.querySelector('[data-how-spd]').textContent = rules.spdMin + ' to ' + rules.spdMax;
           el.querySelector('[data-how-loss]').textContent = String(rules.lossPoints);
+          var staEl = el.querySelector('[data-how-sta]');
+          if (staEl) staEl.textContent = rules.staMin + ' to ' + rules.staMax;
+          var multEl = el.querySelector('[data-how-sprint-mult]');
+          if (multEl) multEl.textContent = String(rules.sprintMult);
+          var maxEl = el.querySelector('[data-how-sprint-max]');
+          if (maxEl) maxEl.textContent = String(rules.sprintMaxSeconds);
           var tiers = el.querySelector('[data-how-tiers]');
           rules.nailTiers.forEach(function (t, i) {
             var odds = t.from == null ? 'Up to ' + t.to
@@ -446,7 +457,7 @@
         return el;
       }
 
-      var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_4rem_7rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
+      var ROW = 'grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_4.5rem_5rem_4rem_7rem] items-center gap-2 px-2 py-2 rounded-xl border transition-opacity';
       var ROW_ON = ' ring-2 ring-violet-400 border-violet-500/70 bg-violet-500/15';
       var ROW_OFF = ' border-transparent';
       var BTN = 'shrink-0 w-28 sm:w-auto h-11 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
@@ -549,6 +560,15 @@
         return derby ? derby.racesPerDerby : RACES;
       }
 
+      // How full the stamina bar is for a gene: the share of the race its
+      // tank can sprint for (sprint seconds out of the race length), from
+      // the rules the server sends.
+      function sprintBarWidth(sta) {
+        var r = window.snailDerby.rules;
+        if (!r || !r.sprintDrain || !r.raceSeconds) return 0;
+        return Math.round(100 * Math.min(1, (sta / r.sprintDrain) / r.raceSeconds));
+      }
+
       // What the banner says. `state` drives behaviour; the stage only adds
       // whether a waiting card is the derby's first pick or a later one.
       function stage() {
@@ -572,9 +592,13 @@
         var chip = node('span', 'hidden', 'SELECTED');
         nameRow.appendChild(chip);
         text.appendChild(nameRow);
-        var meta = node('span', 'sm:hidden text-xs text-zinc-400 flex items-center gap-1.5');
+        var meta = node('span', 'sm:hidden text-xs text-zinc-400 flex items-center gap-1.5 flex-wrap');
         var spdM = node('span', 'font-mono rounded px-1.5 py-0.5 ' + s.chip, 'SPD ·');
         meta.appendChild(spdM);
+        meta.appendChild(node('span', null, '·'));
+        var staM = node('span', 'font-mono rounded px-1.5 py-0.5 bg-violet-500/10 text-violet-300', 'STA ·');
+        staM.setAttribute('data-sta', '');
+        meta.appendChild(staM);
         meta.appendChild(node('span', null, '·'));
         var oddsM = node('span', 'font-mono tabular-nums text-zinc-200', '·');
         meta.appendChild(oddsM);
@@ -586,6 +610,19 @@
         var spdD = node('span', 'font-mono text-xs rounded px-1.5 py-0.5 ' + s.chip, 'SPD ·');
         spdCol.appendChild(spdD);
         li.appendChild(spdCol);
+
+        // Stamina: the gene plus a bar of the share of the race it can
+        // sprint for. Filled on render from the race's field.
+        var staCol = node('span', 'hidden sm:flex flex-col items-end gap-1');
+        staCol.setAttribute('data-sta', '');
+        var staD = node('span', 'font-mono text-xs rounded px-1.5 py-0.5 bg-violet-500/10 text-violet-300', 'STA ·');
+        staCol.appendChild(staD);
+        var staBar = node('span', 'block w-10 h-1.5 rounded-full bg-zinc-800 overflow-hidden');
+        var staFill = node('span', 'block h-full rounded-full bg-violet-500');
+        staBar.appendChild(staFill);
+        staCol.appendChild(staBar);
+        li.appendChild(staCol);
+
         var oddsD = node('span', 'hidden sm:block text-right font-mono tabular-nums text-sm text-zinc-200', '·');
         li.appendChild(oddsD);
 
@@ -596,7 +633,11 @@
         li.appendChild(btn);
 
         list.appendChild(li);
-        rows[s.id] = { li: li, btn: btn, chip: chip, spd: [spdM, spdD], odds: [oddsM, oddsD] };
+        rows[s.id] = {
+          li: li, btn: btn, chip: chip,
+          spd: [spdM, spdD], sta: [staM, staD],
+          staFill: staFill, odds: [oddsM, oddsD]
+        };
       });
 
       for (var sn = 1; sn <= RACES; sn++) {
@@ -653,6 +694,37 @@
         if (window.snailDerby.loadBoard) window.snailDerby.loadBoard();
       }
 
+      // The shape of a snail's run, from its two genes and the server's
+      // sprint rules: how much of the run it spends sprinting, how much of
+      // the distance that covers, and how much of its tank is left at the
+      // end. This is the SAME model the server used to set the odds and draw
+      // the winner: sprint until the pool empties, then fade to the line, so
+      // the lane can never contradict the odds. Used only to draw the lane;
+      // the winner is already decided.
+      function pacePlan(spd, sta) {
+        var r = window.snailDerby.rules;
+        if (!r || !spd || sta == null) return null;
+        var race = r.raceSeconds || 6;
+        var mult = r.sprintMult || 1.5;
+        var drain = r.sprintDrain || 2;
+        var fade = r.exhaustFade || 0.55;
+        var sprintSec = Math.min(race, sta / drain);
+        var sprintDist = spd * mult * sprintSec;
+        var fadeSec = race - sprintSec;
+        var fadeDist = spd * fade * fadeSec;
+        var total = sprintDist + fadeDist;
+        // Energy left as a share of the pool. A snail whose sprint outlasts
+        // the race never empties; one that drains fades with nothing left.
+        var left = sprintSec >= race
+          ? Math.max(0, (sprintSec - race) / sprintSec) : 0;
+        return {
+          sprintShare: sprintSec / race,
+          dFrac: total > 0 ? sprintDist / total : 1,
+          drained: sprintSec < race,
+          left: left
+        };
+      }
+
       // Lanes for race n, in the Race Card's order, each ending in a
       // checkered finish strip.
       function buildTrack(n) {
@@ -671,11 +743,23 @@
           var tag = node('span', 'hidden', '🏆 WINNER');
           tag.style.right = (TOKEN + FINISH_PX + 8) + 'px';
           lane.appendChild(tag);
+          // The sprint HUD: a slim energy bar along the bottom of the lane,
+          // full at the gun and drained while the snail sprints. Purely
+          // cosmetic; the server already settled the race.
+          var energy = node('span', 'absolute left-0 right-0 bottom-0 h-1 bg-zinc-900');
+          energy.setAttribute('data-energy', '');
+          var efill = node('span', 'block h-full bg-violet-500');
+          efill.style.width = '100%';
+          energy.appendChild(efill);
+          lane.appendChild(energy);
           var tok = snailToken(s, 'absolute left-1 top-1 w-8 h-8 text-base transition-opacity');
           lane.appendChild(tok);
+          var drained = node('span', 'hidden', 'DRAINED');
+          drained.className = 'hidden absolute left-11 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap';
+          lane.appendChild(drained);
           li.appendChild(lane);
           lanesEl.appendChild(li);
-          lanes[s.id] = { li: li, lane: lane, tok: tok, tag: tag, anim: null };
+          lanes[s.id] = { li: li, lane: lane, tok: tok, tag: tag, anim: null, efill: efill, drained: drained };
         });
         trackRace = n;
       }
@@ -774,12 +858,55 @@
           if (!l) return;
           var ms = rank === 0 ? WIN_MS : WIN_MS + 150 + Math.round((rank - 1) * 87.5);
           longest = Math.max(longest, ms);
+          var f = field(res.raceNumber, sid);
+          var plan = f ? pacePlan(f.spd, f.sta) : null;
+          var span = to - fromX;
           l.tok.style.transform = 'translateX(' + to + 'px)';
-          if (!REDUCED && l.tok.animate) {
-            l.anim = l.tok.animate(
-              [{ transform: 'translateX(' + fromX + 'px)' }, { transform: 'translateX(' + to + 'px)' }],
-              { duration: ms, easing: 'cubic-bezier(0.45, 0.05, 0.4, 1)', fill: 'forwards' }
-            );
+
+          if (REDUCED || !l.tok.animate) {
+            // Reduced motion: no travel, but leave the bar in its end state
+            // so how the pick finished is still legible.
+            if (plan) {
+              l.efill.style.width = Math.round(plan.left * 100) + '%';
+              if (plan.drained || plan.left < 0.25) l.drained.className = 'absolute left-11 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap';
+            }
+            return;
+          }
+
+          // Two segments, so a drained snail visibly slows: sprint the
+          // sprint share of the time and cover dFrac of the distance, then
+          // fade the rest of the way.
+          var frames = [{ transform: 'translateX(' + fromX + 'px)' }];
+          if (plan && plan.sprintShare > 0 && plan.sprintShare < 1) {
+            frames.push({
+              transform: 'translateX(' + (fromX + plan.dFrac * span) + 'px)',
+              offset: plan.sprintShare
+            });
+          }
+          frames.push({ transform: 'translateX(' + to + 'px)' });
+          l.anim = l.tok.animate(frames, {
+            duration: ms, easing: 'cubic-bezier(0.45, 0.05, 0.4, 1)', fill: 'forwards'
+          });
+
+          if (plan) {
+            // The bar drains over the sprint and stays where the model says
+            // it ends: empty for a snail that faded, partly full only for a
+            // tank that never emptied. The chip appears when the pool hits
+            // empty and clears only if enough energy is back to sprint.
+            var bf = [{ width: '100%' }];
+            if (plan.sprintShare > 0 && plan.sprintShare < 1) {
+              bf.push({ width: '0%', offset: plan.sprintShare });
+            }
+            bf.push({ width: Math.round(plan.left * 100) + '%' });
+            l.efill.animate(bf, { duration: ms, easing: 'linear', fill: 'forwards' });
+            var emptyAt = ms * plan.sprintShare;
+            var exit = (window.snailDerby.rules.exhaustExitRatio || 0.25);
+            if (plan.drained) {
+              setTimeout(function () { if (id === runId) l.drained.className = 'absolute left-11 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap'; }, emptyAt);
+            }
+            if (plan.left >= exit) {
+              setTimeout(function () { if (id === runId) l.drained.className = 'hidden'; }, emptyAt);
+            }
           }
         });
         setTimeout(function () {
@@ -947,6 +1074,19 @@
         if (story) {
           resultEl.appendChild(reason('Why ' + win.name + ' won', story.winnerLine, 'data-why-winner'));
           resultEl.appendChild(reason(res.won ? 'Why your pick won' : 'Why ' + mine.name + ' lost', story.pickLine, 'data-why-pick'));
+        }
+
+        // How your pick's tank held up: whether stamina, not luck, is why
+        // it faded. Reads the same model the lane drew.
+        var pf = field(r.raceNumber, res.pick);
+        var plan = pf ? pacePlan(pf.spd, pf.sta) : null;
+        if (plan) {
+          var energyRow = node('div', 'flex items-center justify-between gap-3 border-t border-zinc-800 pt-2 text-left');
+          energyRow.setAttribute('data-result-energy', '');
+          energyRow.appendChild(node('span', 'text-xs text-zinc-500', 'Energy'));
+          var left = Math.round(plan.left * 100);
+          energyRow.appendChild(node('span', 'font-mono tabular-nums text-sm font-semibold ' + (left < 25 ? 'text-amber-300' : 'text-zinc-300'), left === 0 ? 'drained' : left + '% left'));
+          resultEl.appendChild(energyRow);
         }
 
         var score = node('div', 'flex items-center justify-between gap-3 border-t border-zinc-800 pt-2');
@@ -1217,6 +1357,13 @@
           var row = rows[s.id];
           var f = field(shown, s.id);
           row.spd.forEach(function (el) { el.textContent = 'SPD ' + (f ? f.spd : '·'); });
+          row.sta.forEach(function (el) { el.textContent = 'STA ' + (f && f.sta != null ? f.sta : '·'); });
+          // The bar shows the share of the race its tank covers: sprint
+          // seconds (sta / drain) out of the model's race length, both from
+          // the server's rules so the page never repeats the numbers.
+          row.staFill.style.width = f && f.sta != null && window.snailDerby.rules
+            ? sprintBarWidth(f.sta) + '%'
+            : '0%';
           row.odds.forEach(function (el) { el.textContent = f ? f.odds : '·'; });
           var on = s.id === picked;
           var dim = picked && !on ? ' opacity-60' : '';
@@ -1261,6 +1408,15 @@
         hint.className = state === 'waiting' || error
           ? 'text-xs text-zinc-500 text-center'
           : 'hidden text-xs text-zinc-500 text-center';
+
+        // Build the lanes for the current race as soon as the field is
+        // known, so the sprint HUD (the lane energy bar) is part of the
+        // card and not only created once a race starts. The track stays
+        // hidden until state is racing or result, as it always has.
+        if ((state === 'waiting' || state === 'selected') && derby &&
+            (!lanes[SNAILS[0].id] || trackRace !== shown)) {
+          buildTrack(shown);
+        }
 
         renderProgress();
         renderScore();
