@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Snail Derby app icon: "Finish-line Snail" -->
+  <!-- tile -->
+  <rect x="0" y="0" width="1024" height="1024" fill="#000000"/>
+  <!-- finish line: two columns of 64px checkers, black tile shows between -->
+  <g fill="#FFFEEA">
+    <rect x="736" y="192" width="64" height="64"/>
+    <rect x="736" y="320" width="64" height="64"/>
+    <rect x="736" y="448" width="64" height="64"/>
+    <rect x="736" y="576" width="64" height="64"/>
+    <rect x="736" y="704" width="64" height="64"/>
+    <rect x="800" y="256" width="64" height="64"/>
+    <rect x="800" y="384" width="64" height="64"/>
+    <rect x="800" y="512" width="64" height="64"/>
+    <rect x="800" y="640" width="64" height="64"/>
+    <rect x="800" y="768" width="64" height="64"/>
+  </g>
+  <!-- tile-colour outline so the snail reads over the checkers -->
+  <g fill="#000000" stroke="#000000" stroke-linecap="round">
+    <rect x="140" y="660" width="740" height="120" rx="60" stroke-width="28"/>
+    <line x1="775" y1="670" x2="813" y2="606" stroke-width="156"/>
+    <circle cx="815" cy="560" r="75" stroke-width="28"/>
+    <line x1="782" y1="512" x2="752" y2="418" stroke-width="84"/>
+    <line x1="848" y1="512" x2="878" y2="418" stroke-width="84"/>
+    <circle cx="752" cy="418" r="22" stroke-width="28"/>
+    <circle cx="878" cy="418" r="22" stroke-width="28"/>
+  </g>
+  <!-- snail: foot, neck, head -->
+  <g fill="#FFFEEA">
+    <rect x="140" y="660" width="740" height="120" rx="60"/>
+    <circle cx="815" cy="560" r="75"/>
+    <circle cx="752" cy="418" r="22"/>
+    <circle cx="878" cy="418" r="22"/>
+  </g>
+  <line x1="775" y1="670" x2="813" y2="606" stroke="#FFFEEA" stroke-width="100" stroke-linecap="round"/>
+  <!-- eye stalks -->
+  <g stroke="#FFFEEA" stroke-width="28" stroke-linecap="round" fill="none">
+    <line x1="782" y1="512" x2="752" y2="418"/>
+    <line x1="848" y1="512" x2="878" y2="418"/>
+  </g>
+  <!-- shell with racing roundel -->
+  <circle cx="430" cy="470" r="230" fill="#FFFEEA"/>
+  <circle cx="430" cy="470" r="150" fill="#000000"/>
+  <circle cx="430" cy="470" r="120" fill="#FFEE6F"/>
+</svg>
