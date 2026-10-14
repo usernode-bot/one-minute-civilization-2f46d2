@@ -197,6 +197,21 @@
       "name": "How it works summary explains the game",
       "path": "/",
       "expectText": "Faster snails win more often, but long shots earn more $NAIL."
+    },
+    {
+      "id": "race.browser-wallet",
+      "name": "Race tab shows the Browser wallet card",
+      "path": "/",
+      "expectSelector": "#panel-race:not([hidden]) #browser-wallet[data-wallet-state]",
+      "visual": true,
+      "impact": [
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Browser wallet card is labelled",
+      "path": "/",
+      "expectText": "BROWSER WALLET"
     }
   ],
   "visibility": {

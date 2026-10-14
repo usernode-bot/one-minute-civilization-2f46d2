@@ -87,6 +87,17 @@
     </nav>
 
     <div id="panel-race" role="tabpanel" aria-labelledby="tab-race" class="space-y-4">
+      <section id="browser-wallet" data-wallet-state="disconnected"
+        class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-wrap items-center gap-3">
+        <span class="w-full sm:w-auto min-w-0 sm:flex-1 flex flex-col gap-1">
+          <span class="text-sm font-bold tracking-wide text-zinc-100">BROWSER WALLET</span>
+          <span data-wallet-address class="hidden text-sm font-mono text-zinc-100 truncate" title=""></span>
+          <span data-wallet-note class="text-xs leading-relaxed text-zinc-400">Optional. Shown here only: your $NAIL and leaderboard place stay on your HomeRoom wallet.</span>
+        </span>
+        <button data-wallet-connect type="button" class="shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 whitespace-nowrap">Connect wallet</button>
+        <button data-wallet-disconnect type="button" class="hidden shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap">Disconnect</button>
+      </section>
+
       <section id="how-it-works" class="rounded-2xl border border-zinc-800 bg-zinc-900">
         <button id="how-open" type="button" aria-haspopup="dialog" class="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-colors hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
           <span class="min-w-0 flex-1 flex flex-col gap-1">
@@ -391,6 +402,132 @@
           close();
         }
       });
+    })();
+  </script>
+
+  <script>
+    // Browser wallet card: display-only. Talks to the wallet provider the
+    // browser already has (window.ethereum) and localStorage; never sends
+    // the address to the server. Identity, $NAIL and the leaderboard stay
+    // on the HomeRoom wallet.
+    (function () {
+      var KEY = 'snailDerby.browserWallet';
+      var section = document.getElementById('browser-wallet');
+      var addrEl = section.querySelector('[data-wallet-address]');
+      var noteEl = section.querySelector('[data-wallet-note]');
+      var connectBtn = section.querySelector('[data-wallet-connect]');
+      var disconnectBtn = section.querySelector('[data-wallet-disconnect]');
+      var ethereum = window.ethereum;
+      var provider = ethereum && typeof ethereum.request === 'function' ? ethereum : null;
+
+      // Same rule the header's truncate() uses for the HomeRoom wallet.
+      function truncate(addr) {
+        return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
+      }
+
+      function valid(addr) {
+        return typeof addr === 'string' && /^0x[0-9a-fA-F]{40}$/.test(addr);
+      }
+
+      function read() {
+        try { return localStorage.getItem(KEY); } catch (_) { return null; }
+      }
+
+      function save(addr) {
+        try { localStorage.setItem(KEY, addr); } catch (_) {}
+      }
+
+      function forget() {
+        try { localStorage.removeItem(KEY); } catch (_) {}
+      }
+
+      var NOTE_OPTIONAL = 'Optional. Shown here only: your $NAIL and leaderboard place stay on your HomeRoom wallet.';
+      var NOTE_ONLY = 'Shown here only: your $NAIL and leaderboard place stay on your HomeRoom wallet.';
+      var NOTE_NONE = 'No browser wallet found in this browser.';
+      var NOTE_CANCELLED = 'Connection cancelled.';
+
+      function render(state, addr, note) {
+        section.setAttribute('data-wallet-state', state);
+        var connected = state === 'connected';
+        if (connected) {
+          addrEl.textContent = truncate(addr);
+          addrEl.title = addr;
+          addrEl.classList.remove('hidden');
+        } else {
+          addrEl.classList.add('hidden');
+        }
+        noteEl.textContent = note;
+        connectBtn.className = 'shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 whitespace-nowrap';
+        connectBtn.textContent = state === 'connecting' ? 'Connecting…' : 'Connect wallet';
+        connectBtn.disabled = state === 'connecting' || state === 'none';
+        connectBtn.classList.toggle('hidden', state === 'none');
+        disconnectBtn.classList.toggle('hidden', !connected);
+      }
+
+      function disconnected(note) {
+        render('disconnected', null, note || NOTE_OPTIONAL);
+      }
+
+      connectBtn.addEventListener('click', function () {
+        if (!provider) return;
+        render('connecting');
+        provider.request({ method: 'eth_requestAccounts' }).then(function (accounts) {
+          var addr = accounts && accounts[0];
+          if (!valid(addr)) {
+            disconnected(NOTE_CANCELLED);
+            return;
+          }
+          save(addr);
+          render('connected', addr, NOTE_ONLY);
+        }, function () {
+          // Any rejection, user cancellation included, lands here. No
+          // console.error, so the "no console errors" check stays clean.
+          disconnected(NOTE_CANCELLED);
+        });
+      });
+
+      disconnectBtn.addEventListener('click', function () {
+        forget();
+        disconnected();
+      });
+
+      // Switching accounts in the wallet moves the card with it; the wallet
+      // dropping the site goes back to Connect wallet.
+      if (provider && typeof ethereum.on === 'function') {
+        ethereum.on('accountsChanged', function (accounts) {
+          if (!accounts || !accounts.length || !valid(accounts[0])) {
+            forget();
+            disconnected();
+            return;
+          }
+          if (section.getAttribute('data-wallet-state') === 'connected') {
+            save(accounts[0]);
+            render('connected', accounts[0], NOTE_ONLY);
+          }
+        });
+      }
+
+      if (!provider) {
+        // Leave storage alone; the card just says there is no wallet here.
+        render('none', null, NOTE_NONE);
+      } else {
+        var remembered = read();
+        if (remembered && valid(remembered)) {
+          // Silent check: no prompt. If the wallet no longer holds the
+          // address, forget it; if the check itself fails, keep it.
+          provider.request({ method: 'eth_accounts' }).then(function (accounts) {
+            var has = accounts && accounts.some(function (a) {
+              return typeof a === 'string' && a.toLowerCase() === remembered.toLowerCase();
+            });
+            if (has) render('connected', remembered, NOTE_ONLY);
+            else { forget(); disconnected(); }
+          }, function () {
+            disconnected();
+          });
+        } else {
+          disconnected();
+        }
+      }
     })();
   </script>
 
