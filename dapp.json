@@ -203,7 +203,5 @@
     "build": "public",
     "view": "public"
   },
-  "admins": [
-    "banditiaeja"
-  ]
+  "admins": []
 }
