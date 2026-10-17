@@ -81,10 +81,10 @@
 
   <main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
     <nav id="tabs" role="tablist" aria-label="Snail Derby sections" class="grid grid-cols-4 gap-1 p-1 rounded-xl border border-zinc-800 bg-zinc-900">
-      <button id="tab-race" type="button" role="tab" data-tab="race" aria-controls="panel-race" aria-selected="true" class="h-10 rounded-lg text-xs sm:text-sm font-semibold transition-colors bg-violet-600 text-white">Race</button>
-      <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leaderboard</button>
-      <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
-      <button id="tab-cage" type="button" role="tab" data-tab="cage" aria-controls="panel-cage" aria-selected="false" tabindex="-1" class="h-10 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Cage</button>
+      <button id="tab-race" type="button" role="tab" data-tab="race" aria-controls="panel-race" aria-selected="true" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors bg-violet-600 text-white">Race</button>
+      <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leaderboard</button>
+      <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
+      <button id="tab-cage" type="button" role="tab" data-tab="cage" aria-controls="panel-cage" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Cage</button>
     </nav>
 
     <div id="panel-race" role="tabpanel" aria-labelledby="tab-race" class="space-y-4">
@@ -133,6 +133,13 @@
             <span></span>
           </div>
           <ul id="race-snails" class="flex flex-col gap-1.5 sm:pt-2"></ul>
+        </div>
+
+        <div id="race-error" class="hidden border-t border-zinc-800 pt-3 flex-col gap-2" aria-live="polite">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <p id="race-error-text" class="text-sm text-zinc-300">Couldn't load today's race.</p>
+            <button id="race-retry" type="button" class="shrink-0 w-28 sm:w-auto h-11 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700">Try again</button>
+          </div>
         </div>
 
         <div id="race-track" data-phase="" class="hidden relative">
@@ -255,7 +262,7 @@
     // directly, and switching keeps the URL in step so a reload stays on
     // the same tab.
     (function () {
-      var TAB = 'h-10 rounded-lg text-xs sm:text-sm font-semibold transition-colors ';
+      var TAB = 'w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors ';
       var TAB_ON = TAB + 'bg-violet-600 text-white';
       var TAB_OFF = TAB + 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800';
       var buttons = Array.prototype.slice.call(document.querySelectorAll('#tabs [data-tab]'));
@@ -686,6 +693,8 @@
       var lanesEl = document.getElementById('race-lanes');
       var countEl = document.getElementById('race-countdown');
       var countText = document.getElementById('race-countdown-text');
+      var errEl = document.getElementById('race-error');
+      var retryBtn = document.getElementById('race-retry');
       var summaryEl = document.getElementById('derby-summary');
       var scoreEl = document.querySelector('#daily-derby [data-score]');
       var logEl = document.getElementById('derby-log');
@@ -782,7 +791,8 @@
         var staM = node('span', 'font-mono rounded px-1.5 py-0.5 bg-violet-500/10 text-violet-300', 'STA ·');
         staM.setAttribute('data-sta', '');
         meta.appendChild(staM);
-        meta.appendChild(node('span', null, '·'));
+        // No separator before the odds: on a phone the odds can wrap onto
+        // the next line, and a dot there dangles after STA.
         var oddsM = node('span', 'font-mono tabular-nums text-zinc-200', '·');
         meta.appendChild(oddsM);
         text.appendChild(meta);
@@ -876,6 +886,23 @@
         render();
       }
 
+      // While the derby is still loading, a field cell holds a grey
+      // skeleton bar instead of a stray dot; once the field is known — or
+      // the load failed — the cell shows its real text again.
+      function setCell(el, text, loading) {
+        var sk = el.querySelector('[data-skel]');
+        if (loading) {
+          if (sk) return;
+          el.textContent = '';
+          sk = node('span', 'inline-block w-8 h-3 rounded bg-zinc-800 animate-pulse');
+          sk.setAttribute('data-skel', '');
+          el.appendChild(sk);
+        } else {
+          if (sk) sk.remove();
+          el.textContent = text;
+        }
+      }
+
       function load() {
         return fetch('/api/derby', { headers: window.snailDerby.authHeaders() })
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -897,7 +924,7 @@
           })
           .catch(function () {
             derby = null;
-            error = 'Races unavailable right now.';
+            error = "Couldn't load today's race.";
             render();
           });
       }
@@ -905,6 +932,12 @@
       function refreshBoard() {
         if (window.snailDerby.loadBoard) window.snailDerby.loadBoard();
       }
+
+      retryBtn.addEventListener('click', function () {
+        error = '';
+        render();
+        load();
+      });
 
       // The shape of a snail's run, from its two genes and the server's
       // sprint rules: how much of the run it spends sprinting, how much of
@@ -1565,18 +1598,28 @@
         stageEl.className = PILL + pill.cls;
         var locked = state === 'racing' || state === 'result' || state === 'done';
 
+        // A failed initial load says so inside the card, with a way to retry;
+        // a load still in flight shows grey skeleton bars instead of the
+        // field's stray dots. A run that failed keeps derby, so its error
+        // stays in the hint as before.
+        var failed = !!error && !derby;
+        errEl.className = failed
+          ? 'border-t border-zinc-800 pt-3 flex flex-col gap-2'
+          : 'hidden border-t border-zinc-800 pt-3 flex-col gap-2';
+        var loading = !derby && !error;
+
         SNAILS.forEach(function (s) {
           var row = rows[s.id];
           var f = field(shown, s.id);
-          row.spd.forEach(function (el) { el.textContent = 'SPD ' + (f ? f.spd : '·'); });
-          row.sta.forEach(function (el) { el.textContent = 'STA ' + (f && f.sta != null ? f.sta : '·'); });
+          row.spd.forEach(function (el) { setCell(el, 'SPD ' + (f ? f.spd : '·'), loading); });
+          row.sta.forEach(function (el) { setCell(el, 'STA ' + (f && f.sta != null ? f.sta : '·'), loading); });
           // The bar shows the share of the race its tank covers: sprint
           // seconds (sta / drain) out of the model's race length, both from
           // the server's rules so the page never repeats the numbers.
           row.staFill.style.width = f && f.sta != null && window.snailDerby.rules
             ? sprintBarWidth(f.sta) + '%'
             : '0%';
-          row.odds.forEach(function (el) { el.textContent = f ? f.odds : '·'; });
+          row.odds.forEach(function (el) { setCell(el, f ? f.odds : '·', loading); });
           var on = s.id === picked;
           var dim = picked && !on ? ' opacity-60' : '';
           row.li.className = ROW + (on ? ROW_ON : ROW_OFF) + dim;
@@ -1614,10 +1657,14 @@
 
         runBtn.disabled = state !== 'selected';
         runBtn.textContent = state === 'racing' ? 'RACING…' : 'RUN RACE';
-        if (error) hint.textContent = error;
-        else if (st === 'next') hint.textContent = 'Race ' + shown + ' of ' + perDerby() + '. Pick a snail.';
-        else hint.textContent = 'Pick a snail to run the race.';
-        hint.className = state === 'waiting' || error
+        if (error) {
+          hint.textContent = failed ? '' : error;
+        } else if (st === 'next') {
+          hint.textContent = 'Race ' + shown + ' of ' + perDerby() + '. Pick a snail.';
+        } else {
+          hint.textContent = 'Pick a snail to run the race.';
+        }
+        hint.className = (state === 'waiting' && !error) || (error && !failed)
           ? 'text-xs text-zinc-500 text-center'
           : 'hidden text-xs text-zinc-500 text-center';
 
