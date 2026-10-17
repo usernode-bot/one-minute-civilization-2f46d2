@@ -1632,7 +1632,7 @@
           row.btn.disabled = locked || !r || !!(picked && !on);
         });
 
-        fieldEl.className = state === 'racing' || state === 'result' || complete ? 'hidden' : '';
+        fieldEl.className = failed || state === 'racing' || state === 'result' || complete ? 'hidden' : '';
         trackEl.className = (state === 'racing' || state === 'result') && trackRace === shown ? 'relative' : 'hidden relative';
 
         var showResult = state === 'result' && r && r.result;
