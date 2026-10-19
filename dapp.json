@@ -170,6 +170,17 @@
       "expectSelector": "#panel-race:not([hidden]) ~ #panel-leaderboard[hidden] ~ #panel-history[hidden]"
     },
     {
+      "id": "cage.snails",
+      "name": "Cage tab shows all six snails with care and customization",
+      "path": "/?tab=cage",
+      "expectSelector": "#panel-cage:not([hidden]) #cage-snails [data-cage-snail=\"drea\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "public/snail-cage.js"
+      ]
+    },
+    {
       "id": "tabs.leaderboard",
       "name": "Leaderboard tab shows the leaderboard and hides the Race Card",
       "path": "/?demo=1&tab=leaderboard",
