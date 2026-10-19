@@ -1113,7 +1113,7 @@
             // so how the pick finished is still legible.
             if (plan) {
               l.efill.style.width = Math.round(plan.left * 100) + '%';
-              if (plan.drained || plan.left < 0.25) l.drained.className = 'absolute left-11 top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap';
+              l.drained.className = 'hidden';
             }
             return;
           }
@@ -1159,6 +1159,7 @@
           Object.keys(lanes).forEach(function (sid) {
             var l = lanes[sid];
             var on = sid === res.winner;
+            l.drained.className = 'hidden';
             l.lane.className = 'relative h-10 rounded-lg border overflow-hidden ' + (on ? 'border-violet-500/70 bg-violet-500/10' : 'border-zinc-800 bg-zinc-950');
             l.tag.className = on
               ? 'absolute top-1/2 -translate-y-1/2 text-[10px] font-bold tracking-widest text-white bg-violet-600/90 rounded px-1.5 py-0.5 whitespace-nowrap'
