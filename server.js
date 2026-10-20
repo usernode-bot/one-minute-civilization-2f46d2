@@ -23,6 +23,14 @@ const {
   nailForOdds,
 } = require('./nail-config');
 const { yesterdayDerbyId, nailTotals, claimRaces } = require('./derby-totals');
+const {
+  CARE_COSTS,
+  KINDS,
+  cleanNickname,
+  validValue,
+  readCage,
+  applyCage,
+} = require('./cage');
 
 const app = express();
 const DRAIN_MS = 3000;
@@ -554,6 +562,79 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// The Snail Cage. Care and cosmetics for the signed-in player's six snails,
+// keyed on the platform user id (userIdOf, not playerKey), so linking a
+// wallet later never moves the cage. Earned reuses totalsFor: lifetime $NAIL
+// from stored races, with the staging demo derby excluded. Neither the
+// all-time total nor the leaderboard score ever reads cage_events, so
+// spending here never lowers either.
+function cageView(db, req, today) {
+  return totalsFor(db, req).then(totals =>
+    readCage(db, userIdOf(req), SNAIL_IDS, totals.lifetimeTotal, today.date + 'T00:00:00Z')
+      .then(cage => Object.assign(
+        { date: today.date, earned: totals.lifetimeTotal, costs: CARE_COSTS },
+        cage
+      ))
+  );
+}
+
+app.get('/api/cage', async (req, res) => {
+  try {
+    res.json(await cageView(pool, req, todayDerby()));
+  } catch (err) {
+    console.warn('cage query failed: ' + err.message);
+    res.status(500).json({ error: 'Cage unavailable' });
+  }
+});
+
+// One cage action: kind is name, shell, hat, feed or clean; value is the
+// nickname (null resets to the real name), shell id or hat id. Feed and
+// clean take no value. Runs in one transaction under the player's advisory
+// lock, so two tabs cannot both feed or overspend.
+app.post('/api/cage/snails/:snailId', async (req, res) => {
+  const snailId = req.params.snailId;
+  if (!SNAIL_IDS.includes(snailId)) {
+    return res.status(400).json({ error: 'bad_snail' });
+  }
+  const { kind, value } = req.body || {};
+  let store = null;
+  if (kind === 'name') {
+    try {
+      store = cleanNickname(value);
+    } catch (err) {
+      return res.status(400).json({ error: 'bad_value' });
+    }
+  } else if (kind === 'shell' || kind === 'hat') {
+    if (!validValue(kind, value)) return res.status(400).json({ error: 'bad_value' });
+    store = value;
+  } else if (!KINDS.includes(kind)) {
+    return res.status(400).json({ error: 'bad_kind' });
+  }
+  const today = todayDerby();
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const totals = await totalsFor(client, req);
+    const done = await applyCage(
+      client, userIdOf(req), snailId, kind, store,
+      totals.lifetimeTotal, today.date + 'T00:00:00Z'
+    );
+    if (done.error) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: done.error });
+    }
+    await client.query('COMMIT');
+    res.json(await cageView(pool, req, today));
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.warn('cage action failed: ' + err.message);
+    res.status(500).json({ error: 'Cage unavailable' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
 // /favicon.ico (older browsers, direct visits) doesn't fall through to
@@ -681,6 +762,25 @@ async function migrate() {
   await pool.query(
     `UPDATE derby_races SET user_id = substring(player_key FROM 6)
       WHERE user_id IS NULL AND player_key LIKE 'user:%'`
+  );
+  // The Snail Cage: one append-only event per care action or cosmetic
+  // change. Rows are only ever INSERTed, never updated or deleted. The
+  // latest row per (snail, kind) is the current look, today's feed/clean
+  // rows are the cared-for state, and SUM(nail_spent) is the $NAIL used.
+  // Public like the app's other tables, and never read by the race code.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cage_events (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      snail_id TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('name', 'shell', 'hat', 'feed', 'clean')),
+      value TEXT,
+      nail_spent INTEGER NOT NULL DEFAULT 0 CHECK (nail_spent >= 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS cage_events_user_idx' +
+      ' ON cage_events (user_id, snail_id, kind, id DESC)'
   );
   // No longer read or written: it missed races run before it existed and
   // races run before a wallet was linked. Lifetime $NAIL is now summed from

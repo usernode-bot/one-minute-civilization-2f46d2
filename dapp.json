@@ -224,6 +224,38 @@
       "name": "Browser wallet card is labelled",
       "path": "/",
       "expectText": "BROWSER WALLET"
+    },
+    {
+      "id": "tabs.cage",
+      "name": "Cage tab shows all six snails",
+      "path": "/?tab=cage",
+      "expectSelector": "#panel-cage:not([hidden]) #cage[data-loaded] [data-cage-snail=\"drea\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "server.js",
+        "cage.js"
+      ]
+    },
+    {
+      "name": "Cage tab shows the SNAIL CAGE heading",
+      "path": "/?tab=cage",
+      "expectText": "SNAIL CAGE"
+    },
+    {
+      "name": "Cage tab shows the feed action",
+      "path": "/?tab=cage",
+      "expectSelector": "#cage [data-cage-action=\"feed\"]"
+    },
+    {
+      "name": "Cage tab shows the crown hat option",
+      "path": "/?tab=cage",
+      "expectSelector": "#cage [data-cage-hat=\"crown\"]"
+    },
+    {
+      "name": "Cage tab sits after History and is not selected by default",
+      "path": "/",
+      "expectSelector": "#tab-history ~ #tab-cage[aria-selected=\"false\"]"
     }
   ],
   "visibility": {
