@@ -209,17 +209,6 @@
       </section>
     </div>
 
-    <div id="panel-cage" role="tabpanel" aria-labelledby="tab-cage" hidden>
-      <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
-        <div>
-          <h2 class="text-lg font-bold tracking-wide">SNAIL CAGE</h2>
-          <p class="text-xs text-zinc-400">Care for your snails and dress them up. Just for fun: it never changes a race.</p>
-        </div>
-        <ul id="cage-snails" class="flex flex-col gap-2"></ul>
-        <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">Your cage is saved on this device only. Care and looks never change speed, stamina, odds or $NAIL.</p>
-      </section>
-    </div>
-
     <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden class="space-y-6">
       <p class="text-sm leading-relaxed text-zinc-300">
         Six snails. Eight races. Pick your winners, earn $NAIL points, and discover what your choices say about you.
@@ -239,6 +228,24 @@
     </div>
     <div id="panel-arena" role="tabpanel" aria-labelledby="tab-arena" hidden>
       <div id="arena-root"></div>
+    </div>
+
+    <div id="panel-cage" role="tabpanel" aria-labelledby="tab-cage" hidden>
+      <section id="cage" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div>
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg font-bold tracking-wide">SNAIL CAGE</h2>
+            <span data-cage-balance class="shrink-0 font-mono text-[11px] font-bold text-violet-300 border border-violet-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">$NAIL TO USE 0</span>
+          </div>
+          <p class="text-xs text-zinc-400">Care for your snails and dress them up. Just for fun: it never changes a race.</p>
+        </div>
+
+        <ul id="cage-snails" class="grid grid-cols-3 sm:grid-cols-6 gap-2"></ul>
+
+        <div id="cage-detail" class="border-t border-zinc-800 pt-3 flex flex-col gap-3"></div>
+
+        <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value. Using $NAIL in the cage never lowers your all-time total or your leaderboard score.</p>
+      </section>
     </div>
   </main>
 
@@ -306,6 +313,9 @@
           else url.searchParams.set('tab', name);
           history.replaceState(history.state, '', url.toString());
         } catch (_) {}
+        // The Cage loads its data the first time it is opened. The script
+        // below also loads itself on boot if the panel is already open.
+        if (name === 'cage' && window.snailDerby.loadCage) window.snailDerby.loadCage();
       }
 
       buttons.forEach(function (b, i) {
@@ -573,7 +583,6 @@
     })();
   </script>
 
-  <script src="/snail-cage.js"></script>
   <script src="/derby-stories.js"></script>
 
   <script>
@@ -624,44 +633,16 @@
         el.setAttribute('data-pattern', pattern);
       }
 
-      // The cage's chosen look for a snail, or null when the cage script is
-      // missing or unreadable (tokens then render exactly as today).
-      function cageLook(id) {
-        try {
-          var c = window.snailDerbyCage;
-          if (c && c.store) return c.look(c.store.get(), id);
-        } catch (_) {}
-        return null;
-      }
-
       // Builds a snail's avatar token (picker row, race lane, winner banner,
       // Your Derby summary): the shared neutral body illustration, with a
       // smaller colored, patterned "shell" circle (same badge + pattern as
       // always) layered on its upper-back corner, like a real shell.
-      // With the cage, the shell wears the snail's chosen colour (its badge
-      // comes from the cage's SHELLS, same literals) and its accessory emoji
-      // sits on the upper-left corner.
       function snailToken(s, sizeCls) {
         var el = node('span', sizeCls + ' relative block');
         el.innerHTML = SNAIL_BODY_SVG;
-        var custom = cageLook(s.id);
-        var own = custom && custom.shell === (window.snailDerbyCage.DEFAULT_SHELL[s.id] || 'lime');
-        var shell = node('span', 'absolute top-0 right-0 w-3/5 h-3/5 rounded-full ' + (custom && !own ? custom.badge : s.badge));
+        var shell = node('span', 'absolute top-0 right-0 w-3/5 h-3/5 rounded-full ' + s.badge);
         applyPattern(shell, s);
-        if (custom && !own) {
-          // The snail keeps its own shell pattern, redrawn in the chosen
-          // colour: borderColor recolours dotted/dashed/double patterns,
-          // color feeds the striped/checkered currentColor gradients.
-          shell.style.borderColor = custom.hex;
-          shell.style.color = custom.hex;
-        }
         el.appendChild(shell);
-        if (custom && custom.accEmoji) {
-          var acc = node('span', 'absolute -top-1 -left-1 leading-none text-[0.75em]', custom.accEmoji);
-          acc.setAttribute('aria-hidden', 'true');
-          acc.setAttribute('data-accessory', custom.acc);
-          el.appendChild(acc);
-        }
         return el;
       }
 
@@ -795,14 +776,10 @@
         li.setAttribute('data-snail', s.id);
 
         var who = node('div', 'flex items-center gap-3 min-w-0');
-        var tok = snailToken(s, 'shrink-0 w-10 h-10 text-xl');
-        who.appendChild(tok);
+        who.appendChild(snailToken(s, 'shrink-0 w-10 h-10 text-xl'));
         var text = node('div', 'min-w-0 flex flex-col');
         var nameRow = node('div', 'flex items-center gap-2 min-w-0');
         nameRow.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
-        // The cage's nickname, in quotes, only here in the picker list.
-        var nick = node('span', 'hidden text-xs text-zinc-400 truncate', '');
-        nameRow.appendChild(nick);
         var chip = node('span', 'hidden', 'SELECTED');
         nameRow.appendChild(chip);
         text.appendChild(nameRow);
@@ -849,7 +826,7 @@
 
         list.appendChild(li);
         rows[s.id] = {
-          li: li, btn: btn, chip: chip, tok: tok, nick: nick,
+          li: li, btn: btn, chip: chip,
           spd: [spdM, spdD], sta: [staM, staD],
           staFill: staFill, odds: [oddsM, oddsD]
         };
@@ -861,35 +838,6 @@
         stepsEl.appendChild(stepLi);
         steps.push(stepLi);
       }
-
-      // Cage looks: rebuild each picker row's token and nickname from the
-      // cage's saved state. Race views only ever READ the cage; nothing
-      // writes back.
-      function refreshCage() {
-        SNAILS.forEach(function (s) {
-          var row = rows[s.id];
-          var custom = cageLook(s.id);
-          if (!custom) return;
-          var fresh = snailToken(s, 'shrink-0 w-10 h-10 text-xl');
-          row.tok.replaceWith(fresh);
-          row.tok = fresh;
-          var has = !!custom.nick;
-          row.nick.textContent = has ? '“' + custom.nick + '”' : '';
-          row.nick.className = has ? 'text-xs text-zinc-400 truncate' : 'hidden text-xs text-zinc-400 truncate';
-        });
-      }
-
-      // A cage change redraws the looks a race shows — but never mid-race:
-      // while lanes are animating, the next buildTrack picks the look up.
-      window.addEventListener('snail-cage-change', function () {
-        refreshCage();
-        if (state === 'waiting' || state === 'selected') buildTrack(shown);
-        else if (state === 'result' || state === 'done') render();
-      });
-
-      // For the Cage tab: the snail list and the token builder.
-      window.snailDerby.snails = SNAILS;
-      window.snailDerby.snailToken = snailToken;
 
       // One pick at a time: the other Pick buttons are disabled until the
       // pick is cleared by tapping it again.
@@ -1704,282 +1652,13 @@
         renderScore();
       }
 
-      refreshCage();
       render();
       load();
-    })();
-  </script>
 
-  <script>
-    // Snail Cage tab: feed and pet each snail to raise its mood, and give
-    // it a nickname, a shell colour and one accessory. Purely cosmetic:
-    // races, odds and $NAIL never change, and the cage lives in this
-    // browser's localStorage only. The Race view reads looks through
-    // snailToken; nothing here touches the server.
-    (function () {
-      var CAGE = window.snailDerbyCage;
-      if (!CAGE || !CAGE.store) return;
-      var derby = window.snailDerby;
-      if (!derby || !derby.snails || !derby.snailToken) return;
-      var SNAILS = derby.snails;
-      var snailToken = derby.snailToken;
-      var store = CAGE.store;
-      var state = store.load();
-      var list = document.getElementById('cage-snails');
-      var tabBtn = document.getElementById('tab-cage');
-      if (!list) return;
-
-      var openId = null; // the one snail with its Customize panel open
-      var rows = {};
-
-      var SAID = 'text-sm font-semibold text-violet-300';
-      var SAID_HIDDEN = 'hidden text-sm font-semibold text-violet-300';
-      var PANEL = 'border-t border-zinc-800 pt-3 flex flex-col gap-3';
-      var PANEL_HIDDEN = 'hidden border-t border-zinc-800 pt-3 flex flex-col gap-3';
-      var LINK = 'text-left text-xs font-semibold text-violet-300';
-      var SWATCH = 'w-8 h-8 rounded-full transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400';
-      var SWATCH_ON = ' ring-2 ring-violet-400 ring-offset-2 ring-offset-zinc-950';
-      // Same six colours the snails already wear; whole literals so the
-      // Tailwind build sees them.
-      var SWATCH_BG = {
-        lime: 'bg-lime-400', pink: 'bg-pink-400', teal: 'bg-teal-400',
-        orange: 'bg-orange-400', slate: 'bg-slate-300', sky: 'bg-sky-400'
-      };
-      var CHIP = 'h-9 px-3 rounded-lg text-sm font-semibold border transition-colors ';
-      var CHIP_OFF = CHIP + 'border-zinc-700 text-zinc-100 hover:bg-zinc-800';
-      var CHIP_ON = CHIP + 'border-violet-500/70 bg-violet-500/15 text-zinc-100 ring-2 ring-violet-400';
-      var CARE_BTN = 'h-11 px-4 rounded-lg text-sm font-semibold transition-colors ';
-      var FEED_CLS = CARE_BTN + 'bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700';
-      var PET_CLS = CARE_BTN + 'border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700';
-
-      function node(tag, cls, text) {
-        var n = document.createElement(tag);
-        if (cls) n.className = cls;
-        if (text != null) n.textContent = text;
-        return n;
-      }
-
-      function snailOf(id) {
-        for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i];
-        return { id: id, name: id };
-      }
-
-      function token(s) {
-        return snailToken(s, 'shrink-0 w-12 h-12 text-2xl');
-      }
-
-      function refreshToken(id) {
-        var r = rows[id];
-        var fresh = token(r.s);
-        r.tok.replaceWith(fresh);
-        r.tok = fresh;
-      }
-
-      function refreshNick(id) {
-        var r = rows[id];
-        var nick = CAGE.look(state, id).nick;
-        r.nick.textContent = nick ? '“' + nick + '”' : '';
-        r.nick.className = nick ? 'text-xs text-zinc-400 truncate' : 'hidden text-xs text-zinc-400 truncate';
-      }
-
-      // Mood decays while you are away, so it is recomputed from the stamp
-      // each time it is drawn (on care, on load, and whenever the Cage tab
-      // is shown). No timers.
-      function refreshMood(id) {
-        var ids = id ? [id] : SNAILS.map(function (s) { return s.id; });
-        ids.forEach(function (sid) {
-          var r = rows[sid];
-          if (!r) return;
-          var m = CAGE.moodNow(state.snails[sid], Date.now());
-          r.fill.style.width = m + '%';
-          r.word.textContent = CAGE.moodLabel(m);
-        });
-      }
-
-      function say(id, text) {
-        rows[id].said.textContent = text;
-        rows[id].said.className = SAID;
-      }
-
-      function act(id, kind) {
-        var name = snailOf(id).name;
-        if (CAGE.moodNow(state.snails[id], Date.now()) >= 100) {
-          say(id, name + ' is already as happy as a snail can be.');
-          return;
-        }
-        CAGE.care(state, id, kind);
-        store.save();
-        refreshMood(id);
-        say(id, kind === 'feed'
-          ? name + ' munched a lettuce leaf.'
-          : name + ' wiggled its antennae happily.');
-      }
-
-      function setOpen(id) {
-        openId = openId === id ? null : id;
-        SNAILS.forEach(function (s) {
-          var r = rows[s.id];
-          var isOpen = s.id === openId;
-          r.panel.className = isOpen ? PANEL : PANEL_HIDDEN;
-          r.cust.textContent = isOpen ? 'Done ‹' : 'Customize ›';
-          r.cust.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
-        if (openId) refreshMood(openId);
-      }
-
-      function refreshSwatches(id) {
-        var r = rows[id];
-        var chosen = CAGE.look(state, id).shell;
-        Object.keys(r.swatches).forEach(function (key) {
-          var on = key === chosen;
-          r.swatches[key].className = SWATCH + ' ' + SWATCH_BG[key] + (on ? SWATCH_ON : '');
-          r.swatches[key].setAttribute('aria-pressed', on ? 'true' : 'false');
-        });
-      }
-
-      function refreshChips(id) {
-        var r = rows[id];
-        var chosen = CAGE.look(state, id).acc;
-        Object.keys(r.chips).forEach(function (key) {
-          r.chips[key].className = key === chosen ? CHIP_ON : CHIP_OFF;
-          r.chips[key].setAttribute('aria-pressed', key === chosen ? 'true' : 'false');
-        });
-      }
-
-      SNAILS.forEach(function (s) {
-        var li = node('li', 'rounded-xl border border-zinc-800 bg-zinc-950 p-3 flex flex-col gap-2');
-        li.setAttribute('data-cage-snail', s.id);
-
-        var top = node('div', 'flex flex-wrap sm:flex-nowrap items-start gap-3');
-        var tok = token(s);
-        top.appendChild(tok);
-
-        var who = node('div', 'flex-1 min-w-0 flex flex-col gap-1.5');
-        var nameRow = node('div', 'flex items-center gap-2 min-w-0');
-        nameRow.appendChild(node('span', 'font-semibold text-zinc-100 truncate', s.name));
-        var nick = node('span', 'hidden text-xs text-zinc-400 truncate', '');
-        nameRow.appendChild(nick);
-        who.appendChild(nameRow);
-
-        var moodRow = node('div', 'text-xs text-zinc-400 flex items-center gap-2');
-        moodRow.appendChild(node('span', null, 'Mood'));
-        var bar = node('span', 'block w-24 h-1.5 rounded-full bg-zinc-800 overflow-hidden shrink-0');
-        var fill = node('span', 'block h-full rounded-full bg-violet-500');
-        bar.appendChild(fill);
-        moodRow.appendChild(bar);
-        var word = node('span', null, '');
-        moodRow.appendChild(word);
-        who.appendChild(moodRow);
-
-        var cust = node('button', LINK, 'Customize ›');
-        cust.type = 'button';
-        cust.setAttribute('aria-expanded', 'false');
-        who.appendChild(cust);
-        top.appendChild(who);
-
-        var acts = node('div', 'w-full sm:w-auto grid grid-cols-2 gap-2');
-        var feed = node('button', FEED_CLS, 'Feed');
-        feed.type = 'button';
-        var pet = node('button', PET_CLS, 'Pet');
-        pet.type = 'button';
-        acts.appendChild(feed);
-        acts.appendChild(pet);
-        top.appendChild(acts);
-        li.appendChild(top);
-
-        var said = node('p', SAID_HIDDEN, '');
-        said.setAttribute('aria-live', 'polite');
-
-        var panel = node('div', PANEL_HIDDEN);
-
-        var nickWrap = node('div', 'flex flex-col gap-1');
-        var nickLbl = node('label', 'text-xs text-zinc-500', 'Nickname');
-        nickLbl.setAttribute('for', 'cage-nick-' + s.id);
-        nickWrap.appendChild(nickLbl);
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'cage-nick-' + s.id;
-        input.maxLength = 16;
-        input.value = CAGE.look(state, s.id).nick;
-        input.placeholder = s.name;
-        input.className = 'h-10 rounded-lg border border-zinc-700 bg-zinc-900 text-sm text-zinc-100 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400';
-        input.setAttribute('aria-label', 'Nickname for ' + s.name);
-        nickWrap.appendChild(input);
-        panel.appendChild(nickWrap);
-
-        var shellWrap = node('div', 'flex flex-col gap-2');
-        shellWrap.appendChild(node('span', 'text-xs text-zinc-500', 'Shell'));
-        var sw = node('div', 'flex flex-wrap gap-2');
-        var swatches = {};
-        Object.keys(CAGE.SHELLS).forEach(function (key) {
-          var b = document.createElement('button');
-          b.type = 'button';
-          b.setAttribute('aria-label', key);
-          sw.appendChild(b);
-          swatches[key] = b;
-        });
-        shellWrap.appendChild(sw);
-        panel.appendChild(shellWrap);
-
-        var accWrap = node('div', 'flex flex-col gap-2');
-        accWrap.appendChild(node('span', 'text-xs text-zinc-500', 'Accessory'));
-        var chipsEl = node('div', 'flex flex-wrap gap-2');
-        var chips = {};
-        CAGE.ACCESSORIES.forEach(function (a) {
-          var b = document.createElement('button');
-          b.type = 'button';
-          b.textContent = a.emoji ? a.emoji + ' ' + a.label : a.label;
-          b.setAttribute('aria-label', a.label);
-          chipsEl.appendChild(b);
-          chips[a.id] = b;
-        });
-        accWrap.appendChild(chipsEl);
-        panel.appendChild(accWrap);
-
-        li.appendChild(said);
-        li.appendChild(panel);
-        list.appendChild(li);
-
-        rows[s.id] = {
-          s: s, tok: tok, nick: nick, fill: fill, word: word,
-          said: said, panel: panel, cust: cust, input: input,
-          swatches: swatches, chips: chips
-        };
-
-        feed.addEventListener('click', function () { act(s.id, 'feed'); });
-        pet.addEventListener('click', function () { act(s.id, 'pet'); });
-        cust.addEventListener('click', function () { setOpen(s.id); });
-        input.addEventListener('input', function () {
-          CAGE.setNick(state, s.id, input.value);
-          store.save();
-          refreshNick(s.id);
-        });
-        Object.keys(swatches).forEach(function (key) {
-          swatches[key].addEventListener('click', function () {
-            CAGE.setShell(state, s.id, key);
-            store.save();
-            refreshToken(s.id);
-            refreshSwatches(s.id);
-          });
-        });
-        Object.keys(chips).forEach(function (key) {
-          chips[key].addEventListener('click', function () {
-            CAGE.setAccessory(state, s.id, key);
-            store.save();
-            refreshToken(s.id);
-            refreshChips(s.id);
-          });
-        });
-
-        refreshNick(s.id);
-        refreshSwatches(s.id);
-        refreshChips(s.id);
-        refreshMood(s.id);
-      });
-
-      // Mood is refreshed whenever the Cage tab is shown, so coming back
-      // after a while shows the decay.
-      if (tabBtn) tabBtn.addEventListener('click', function () { refreshMood(); });
+      // Shared with the Cage script, which redraws the same snail tokens
+      // with a chosen shell colour and hat. `node` stays in scope here.
+      window.snailDerby.snails = SNAILS;
+      window.snailDerby.snailToken = snailToken;
     })();
   </script>
 
@@ -2147,6 +1826,330 @@
       window.snailDerby.loadBoard = function () { return loadBoard().then(schedule); };
 
       loadBoard().then(schedule);
+    })();
+  </script>
+
+  <script>
+    // Cage tab: feed and clean the six snails (25 $NAIL each, once per
+    // snail per day), name them and pick a shell colour and hat. Every
+    // change POSTs to /api/cage/snails/:id and the page re-renders from the
+    // fresh cage view it sends back. Purely cosmetic: the race code never
+    // reads any of this.
+    (function () {
+      var SNAILS = window.snailDerby.snails || [];
+      var snailToken = window.snailDerby.snailToken;
+      var authHeaders = window.snailDerby.authHeaders;
+      if (!SNAILS.length || !snailToken) return;
+
+      var section = document.getElementById('cage');
+      var listEl = document.getElementById('cage-snails');
+      var detailEl = document.getElementById('cage-detail');
+      var balanceEl = section.querySelector('[data-cage-balance]');
+
+      // The shell and hat id lists must match cage.js on the server, as the
+      // page's snail ids must match the server's SNAIL_IDS.
+      var SHELLS = [
+        { id: 'own', label: 'Own' },
+        { id: 'violet', label: 'Violet' },
+        { id: 'amber', label: 'Amber' },
+        { id: 'emerald', label: 'Emerald' },
+        { id: 'rose', label: 'Rose' }
+      ];
+      var HATS = [
+        { id: 'none', label: 'None', glyph: '✕' },
+        { id: 'top_hat', label: 'Top hat', glyph: '🎩' },
+        { id: 'crown', label: 'Crown', glyph: '👑' },
+        { id: 'bow', label: 'Bow', glyph: '🎀' },
+        { id: 'cap', label: 'Cap', glyph: '🧢' },
+        { id: 'flower', label: 'Flower', glyph: '🌼' }
+      ];
+      var HAT_GLYPH = {};
+      HATS.forEach(function (h) { HAT_GLYPH[h.id] = h.glyph; });
+
+      // Whole literal class strings so the Tailwind build sees them. `own`
+      // keeps the snail's own badge.
+      var SHELL_BADGE = {
+        violet: 'bg-violet-500/20 ring-1 ring-violet-400/50',
+        amber: 'bg-amber-500/20 ring-1 ring-amber-400/50',
+        emerald: 'bg-emerald-500/20 ring-1 ring-emerald-400/50',
+        rose: 'bg-rose-500/20 ring-1 ring-rose-400/50'
+      };
+
+      var PRIMARY = 'w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed';
+      var SECONDARY = 'h-11 rounded-xl text-sm font-bold tracking-wide transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center gap-2 disabled:text-zinc-500 disabled:border-zinc-800 disabled:hover:bg-transparent';
+      var TILE = 'w-full flex flex-col items-center gap-1 rounded-xl border px-1 pt-3 pb-2 text-center transition-colors ';
+      var TILE_ON = 'border-violet-500/70 bg-violet-500/15 ring-2 ring-violet-400';
+      var TILE_OFF = 'border-zinc-800 hover:bg-zinc-800/60';
+      var STATUS_CLS = {
+        happy: 'text-lime-300',
+        hungry: 'text-amber-300',
+        dirty: 'text-sky-300'
+      };
+      var RESET_LINE = 'Feeding and cleaning reset at 00:00 UTC.';
+      var SHORT_LINE = 'Win races to earn more $NAIL.';
+      var NAME_HINT = 'Names can use letters, numbers and spaces, up to 20.';
+
+      var view = null;      // the last GET /api/cage
+      var selected = 'cycle_o';
+      var draft = null;     // what is typed in the name box, across re-renders
+      var failed = false;
+
+      function node(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+      }
+
+      function realSnail(id) {
+        for (var i = 0; i < SNAILS.length; i++) if (SNAILS[i].id === id) return SNAILS[i];
+        return SNAILS[0];
+      }
+
+      // The chosen snail's look from the view, with the same defaults the
+      // server falls back to before anything is chosen.
+      function lookOf(id) {
+        if (view) {
+          for (var i = 0; i < view.snails.length; i++) if (view.snails[i].id === id) return view.snails[i];
+        }
+        return { id: id, nickname: null, shell: 'own', hat: 'none', fedToday: false, cleanToday: false };
+      }
+
+      // Happy if fed and cleaned today, Hungry if not fed, else Needs a
+      // clean. Never touches speed, stamina, odds or winners.
+      function statusOf(look) {
+        if (look.fedToday && look.cleanToday) return ['Happy', 'happy'];
+        if (!look.fedToday) return ['Hungry', 'hungry'];
+        return ['Needs a clean', 'dirty'];
+      }
+
+      function cost(kind) {
+        return view && view.costs && view.costs[kind] != null ? view.costs[kind] : 25;
+      }
+
+      // A snail token with the chosen shell (the snail's own pattern kept)
+      // and the hat emoji sitting on top of the shell.
+      function token(s, px) {
+        var look = lookOf(s.id);
+        var badge = look.shell === 'own' ? s.badge : SHELL_BADGE[look.shell];
+        var el = snailToken(Object.assign({}, s, { badge: badge }), 'relative block');
+        el.style.width = px + 'px';
+        el.style.height = px + 'px';
+        if (look.hat && look.hat !== 'none') {
+          var hat = node('span', 'absolute leading-none', HAT_GLYPH[look.hat] || '');
+          hat.style.top = Math.round(-0.34 * px) + 'px';
+          hat.style.right = Math.round(0.06 * px) + 'px';
+          hat.style.fontSize = Math.round(0.42 * px) + 'px';
+          el.appendChild(hat);
+        }
+        return el;
+      }
+
+      // One tile per snail, built once; names, tokens and statuses update
+      // on every render.
+      var tiles = {};
+      SNAILS.forEach(function (s) {
+        var li = node('li');
+        li.setAttribute('data-cage-snail', s.id);
+        var btn = node('button', TILE + TILE_OFF);
+        btn.type = 'button';
+        btn.setAttribute('aria-pressed', 'false');
+        var tok = node('span', 'relative block w-10 h-10 mt-2.5');
+        var name = node('span', 'max-w-full truncate text-xs font-semibold text-zinc-100', s.name);
+        var st = node('span', 'text-[11px] font-semibold ' + STATUS_CLS.hungry, 'Hungry');
+        btn.appendChild(tok);
+        btn.appendChild(name);
+        btn.appendChild(st);
+        btn.addEventListener('click', function () {
+          selected = s.id;
+          draft = null;
+          render();
+        });
+        li.appendChild(btn);
+        listEl.appendChild(li);
+        tiles[s.id] = { btn: btn, tok: tok, name: name, st: st };
+      });
+
+      function renderTiles() {
+        SNAILS.forEach(function (s) {
+          var t = tiles[s.id];
+          var look = lookOf(s.id);
+          var st = statusOf(look);
+          t.name.textContent = look.nickname || s.name;
+          t.st.textContent = st[0];
+          t.st.className = 'text-[11px] font-semibold ' + STATUS_CLS[st[1]];
+          t.tok.textContent = '';
+          t.tok.appendChild(token(s, 40));
+          var on = s.id === selected;
+          t.btn.className = TILE + (on ? TILE_ON : TILE_OFF);
+          t.btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+
+      function careButton(kind, look) {
+        var done = kind === 'feed' ? look.fedToday : look.cleanToday;
+        var primary = kind === 'feed';
+        var btn = node('button', primary ? PRIMARY : SECONDARY + ' w-full');
+        btn.type = 'button';
+        btn.setAttribute('data-cage-action', kind);
+        if (done) {
+          btn.textContent = primary ? 'FED TODAY' : 'CLEANED TODAY';
+          btn.disabled = true;
+        } else {
+          btn.textContent = (kind === 'feed' ? 'FEED' : 'CLEAN') + ' · ' + cost(kind) + ' $NAIL';
+          btn.disabled = !view || view.balance < cost(kind);
+        }
+        btn.addEventListener('click', function () { act(kind); });
+        return btn;
+      }
+
+      function optionRow(labelText, options, current, attr, pick) {
+        var field = node('div', 'flex flex-col gap-1.5');
+        field.appendChild(node('span', 'text-xs font-medium text-zinc-500', labelText));
+        var opts = node('div', 'flex flex-wrap gap-2');
+        options.forEach(function (o) {
+          var on = o.id === current;
+          var opt = node('button', 'flex flex-col items-center gap-1 rounded-lg px-1 py-1 text-[11px] ' + (on ? 'font-semibold text-violet-300' : 'text-zinc-400'));
+          opt.type = 'button';
+          opt.setAttribute(attr, o.id);
+          opt.setAttribute('aria-pressed', on ? 'true' : 'false');
+          if (o.glyph) {
+            var box = node('span', 'w-11 h-11 rounded-lg border flex items-center justify-center text-xl ' + (on ? 'border-violet-400 bg-violet-500/15' : 'border-zinc-700'));
+            box.textContent = o.glyph;
+            opt.appendChild(box);
+          } else {
+            // Shell swatches: `own` keeps the snail's own badge colour.
+            var sw = node('span', 'w-8 h-8 rounded-full ' + (o.id === 'own' ? realSnail(selected).badge : SHELL_BADGE[o.id]));
+            opt.appendChild(sw);
+          }
+          opt.appendChild(node('span', null, o.label));
+          opt.addEventListener('click', function () { pick(o.id); });
+          opts.appendChild(opt);
+        });
+        field.appendChild(opts);
+        return field;
+      }
+
+      function renderDetail() {
+        detailEl.textContent = '';
+        if (failed) {
+          detailEl.appendChild(node('p', 'text-sm text-zinc-400', 'Cage unavailable right now.'));
+          return;
+        }
+        var s = realSnail(selected);
+        var look = lookOf(selected);
+
+        var who = node('div', 'flex items-center gap-3 pt-1');
+        who.appendChild(token(s, 56));
+        var whoText = node('div', 'min-w-0 flex flex-col gap-1');
+        whoText.appendChild(node('p', 'truncate text-lg font-bold text-zinc-100', look.nickname || s.name));
+        if (look.nickname) whoText.appendChild(node('p', 'text-xs text-zinc-500', s.name));
+        var chips = node('div', 'flex flex-wrap gap-1.5');
+        chips.appendChild(node('span', 'text-[10px] font-bold tracking-widest rounded px-1.5 py-0.5 ' + (look.fedToday ? 'text-lime-300 bg-lime-500/10' : 'text-amber-300 bg-amber-500/10'), look.fedToday ? 'FED TODAY' : 'HUNGRY'));
+        chips.appendChild(node('span', 'text-[10px] font-bold tracking-widest rounded px-1.5 py-0.5 ' + (look.cleanToday ? 'text-sky-300 bg-sky-500/10' : 'text-zinc-400 bg-zinc-800'), look.cleanToday ? 'CLEAN' : 'NEEDS A CLEAN'));
+        whoText.appendChild(chips);
+        who.appendChild(whoText);
+        detailEl.appendChild(who);
+
+        var care = node('div', 'grid grid-cols-1 sm:grid-cols-2 gap-2');
+        care.appendChild(careButton('feed', look));
+        care.appendChild(careButton('clean', look));
+        detailEl.appendChild(care);
+
+        var hint = node('p', 'text-xs text-zinc-500 text-center');
+        hint.id = 'cage-hint';
+        hint.textContent = !view || view.balance < cost('feed') || view.balance < cost('clean')
+          ? SHORT_LINE
+          : RESET_LINE;
+        detailEl.appendChild(hint);
+
+        // Name: SAVE is the only button of its kind; an empty box resets to
+        // the snail's real name.
+        var nameField = node('div', 'flex flex-col gap-1.5');
+        nameField.appendChild(node('span', 'text-xs font-medium text-zinc-500', 'Name'));
+        var row = node('div', 'flex gap-2');
+        var input = node('input', 'min-w-0 flex-1 h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400');
+        input.type = 'text';
+        input.maxLength = 20;
+        input.id = 'cage-name';
+        input.placeholder = s.name;
+        input.value = draft != null ? draft : (look.nickname || '');
+        input.addEventListener('input', function () { draft = input.value; });
+        row.appendChild(input);
+        var saveBtn = node('button', SECONDARY + ' shrink-0 px-4', 'SAVE');
+        saveBtn.id = 'cage-save';
+        saveBtn.addEventListener('click', function () { act('name', input.value, NAME_HINT); });
+        row.appendChild(saveBtn);
+        nameField.appendChild(row);
+        detailEl.appendChild(nameField);
+
+        detailEl.appendChild(optionRow('Shell', SHELLS, look.shell, 'data-cage-shell', function (id) { act('shell', id); }));
+        detailEl.appendChild(optionRow('Hat', HATS, look.hat, 'data-cage-hat', function (id) { act('hat', id); }));
+      }
+
+      function render() {
+        balanceEl.textContent = '$NAIL TO USE ' + (view ? view.balance : 0);
+        renderTiles();
+        renderDetail();
+      }
+
+      // Keep the hint on screen when an action is refused without a
+      // re-render (which would rebuild the name box mid-edit).
+      function showHint(text) {
+        var h = document.getElementById('cage-hint');
+        if (!h) return;
+        h.textContent = text;
+        h.className = 'text-xs text-amber-300 text-center';
+      }
+
+      function act(kind, value, badValueMsg) {
+        if (!view) return;
+        fetch('/api/cage/snails/' + selected, {
+          method: 'POST',
+          headers: Object.assign({ 'content-type': 'application/json' }, authHeaders()),
+          body: JSON.stringify({ kind: kind, value: value == null ? null : value })
+        })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            return r.json().catch(function () { return {}; }).then(function (e) {
+              throw new Error(e.error || 'HTTP ' + r.status);
+            });
+          })
+          .then(function (fresh) {
+            view = fresh;
+            if (kind === 'name') draft = null;
+            render();
+          })
+          .catch(function (err) {
+            if (err.message === 'not_enough') return showHint(SHORT_LINE);
+            if (err.message === 'bad_value') return showHint(badValueMsg || NAME_HINT);
+            // Another tab fed or cleaned first: reload the fresh view.
+            if (err.message === 'already_done') return load();
+            showHint('Cage unavailable right now.');
+          });
+      }
+
+      function load() {
+        return fetch('/api/cage', { headers: authHeaders() })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (v) {
+            view = v;
+            failed = false;
+            section.setAttribute('data-loaded', '');
+            render();
+          })
+          .catch(function () {
+            failed = true;
+            section.setAttribute('data-loaded', '');
+            render();
+          });
+      }
+      window.snailDerby.loadCage = load;
+
+      render();
+      // Opened straight from the URL (?tab=cage): the tab script ran before
+      // this one existed, so its loadCage call did nothing.
+      if (!document.getElementById('panel-cage').hidden) load();
     })();
   </script>
 </body>
