@@ -226,6 +226,43 @@
       "expectText": "BROWSER WALLET"
     },
     {
+      "id": "arena.maps",
+      "name": "Arena tab lists all five maps with canvas thumbnails",
+      "path": "/?tab=arena",
+      "expectSelector": "#arena-maps [data-map=\"volcano\"] canvas",
+      "visual": true,
+      "impact": [
+        "public/arena/**",
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Arena shows Meadow, Desert, Forest, Candy and Volcano cards",
+      "path": "/?tab=arena",
+      "expectSelector": "#arena-maps [data-map=\"meadow\"] ~ [data-map=\"desert\"] ~ [data-map=\"forest\"] ~ [data-map=\"candy\"] ~ [data-map=\"volcano\"]"
+    },
+    {
+      "id": "arena.preview",
+      "name": "Arena race preview follows the map in the URL",
+      "path": "/?tab=arena&map=candy",
+      "expectSelector": "#arena-preview[data-map=\"candy\"] #arena-preview-canvas",
+      "visual": true,
+      "impact": [
+        "public/arena/**",
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Arena offers laps, opponents difficulty and a Start race button",
+      "path": "/?tab=arena",
+      "expectSelector": "#arena-laps [data-value=\"3\"] ~ [data-value=\"5\"], #arena-difficulty [data-value=\"hard\"], #arena-start"
+    },
+    {
+      "name": "Arena panel is hidden on the Race tab and Race tab still works",
+      "path": "/",
+      "expectSelector": "#panel-race:not([hidden]) ~ #panel-arena[hidden]"
+    },
+    {
       "id": "tabs.cage",
       "name": "Cage tab shows all six snails",
       "path": "/?tab=cage",
