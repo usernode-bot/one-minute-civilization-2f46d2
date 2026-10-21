@@ -240,3 +240,50 @@ test('after a failed silent check the remembered wallet reconnects when it reapp
   provider.emit('accountsChanged', [A]);
   assert.strictEqual(section.state(), 'connected');
 });
+
+function setupWithState(stored) {
+  const section = fakeSection();
+  const provider = fakeProvider();
+  const states = [];
+  W.createBrowserWallet({
+    section,
+    storage: memoryStorage(stored ? { [W.KEY]: stored } : {}),
+    win: fakeWindow(),
+    getProvider: () => provider,
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    onState: (s) => states.push(s),
+  });
+  return { section, provider, states };
+}
+
+test('onState hears checking then connected on a matching restore', async () => {
+  const { provider, states } = setupWithState(A);
+  provider.take('eth_accounts').resolve([A]);
+  await tick();
+  assert.deepStrictEqual(states, ['checking', 'connected']);
+});
+
+test('onState hears disconnected last after Disconnect', async () => {
+  const { section, provider, states } = setupWithState(A);
+  provider.take('eth_accounts').resolve([A]);
+  await tick();
+  section.disconnectBtn.click();
+  assert.strictEqual(states[states.length - 1], 'disconnected');
+});
+
+test('onState is optional', () => {
+  assert.doesNotThrow(() => setup());
+});
+
+test('connected shows only Disconnect; disconnected shows only Connect wallet', async () => {
+  const { section, provider } = setup();
+  section.connectBtn.click();
+  provider.take('eth_requestAccounts').resolve([A]);
+  await tick();
+  assert.ok(section.connectBtn.classList.contains('hidden'));
+  assert.ok(!section.disconnectBtn.classList.contains('hidden'));
+  section.disconnectBtn.click();
+  assert.ok(!section.connectBtn.classList.contains('hidden'));
+  assert.ok(section.disconnectBtn.classList.contains('hidden'));
+});

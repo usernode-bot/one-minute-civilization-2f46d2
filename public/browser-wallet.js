@@ -38,6 +38,8 @@
   function createBrowserWallet(opts) {
     var win = opts.win || window;
     var section = opts.section;
+    // Optional: told every new state, e.g. so the header can show it.
+    var onState = typeof opts.onState === 'function' ? opts.onState : null;
     var setTimer = opts.setTimeout || function (fn, ms) { return setTimeout(fn, ms); };
     var clearTimer = opts.clearTimeout || function (t) { clearTimeout(t); };
     var getProvider = opts.getProvider || function () {
@@ -96,8 +98,10 @@
       connectBtn.textContent = next === 'connecting' ? 'Connecting…'
         : next === 'checking' ? 'Checking…' : 'Connect wallet';
       connectBtn.disabled = next === 'connecting' || next === 'checking' || next === 'none';
-      connectBtn.classList.toggle('hidden', next === 'none');
+      // Connected shows only Disconnect; no wallet shows no button at all.
+      connectBtn.classList.toggle('hidden', next === 'none' || connected);
       disconnectBtn.classList.toggle('hidden', !connected);
+      if (onState) onState(next);
     }
 
     function disconnected(note) {

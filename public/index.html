@@ -73,9 +73,33 @@
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen overflow-x-clip">
   <header class="border-b border-zinc-800">
-    <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+    <div class="relative max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
       <h1 class="text-base font-bold tracking-wide whitespace-nowrap">🐌 SNAIL DERBY</h1>
-      <span id="wallet" class="text-xs font-mono text-zinc-400 truncate" title="">&nbsp;</span>
+      <button id="wallet-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="wallet-menu" data-browser-wallet="checking"
+        class="h-9 px-3 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-1.5 min-w-0">
+        <span data-browser-dot class="hidden shrink-0 w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true"></span>
+        <span id="wallet" class="text-xs font-mono text-zinc-400 truncate" title="">&nbsp;</span>
+        <span class="shrink-0 text-[10px] text-zinc-400" aria-hidden="true">▾</span>
+      </button>
+      <div id="wallet-menu" hidden aria-label="Wallet"
+        class="absolute top-full mt-1 left-4 right-4 sm:left-auto sm:w-80 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-xl z-20">
+        <div class="flex flex-col gap-3">
+          <div data-homeroom-wallet class="flex flex-col gap-1">
+            <span class="text-sm font-bold tracking-wide text-zinc-100">HOMEROOM WALLET</span>
+            <span data-homeroom-address class="text-sm font-mono text-zinc-100 break-all">Checking your wallet…</span>
+            <span data-homeroom-note class="text-xs leading-relaxed text-zinc-400"></span>
+          </div>
+          <div id="browser-wallet" data-wallet-state="checking" class="border-t border-zinc-800 pt-3 flex flex-col gap-1">
+            <span class="text-sm font-bold tracking-wide text-zinc-100">BROWSER WALLET</span>
+            <span data-wallet-address class="hidden text-sm font-mono text-zinc-100 truncate" title=""></span>
+            <span data-wallet-note class="text-xs leading-relaxed text-zinc-400">Checking your wallet…</span>
+            <span class="flex gap-2 mt-1">
+              <button data-wallet-connect type="button" class="shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 whitespace-nowrap" disabled>Checking…</button>
+              <button data-wallet-disconnect type="button" class="hidden shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap">Disconnect</button>
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -89,17 +113,6 @@
     </nav>
 
     <div id="panel-race" role="tabpanel" aria-labelledby="tab-race" class="space-y-4">
-      <section id="browser-wallet" data-wallet-state="checking"
-        class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-wrap items-center gap-3">
-        <span class="w-full sm:w-auto min-w-0 sm:flex-1 flex flex-col gap-1">
-          <span class="text-sm font-bold tracking-wide text-zinc-100">BROWSER WALLET</span>
-          <span data-wallet-address class="hidden text-sm font-mono text-zinc-100 truncate" title=""></span>
-          <span data-wallet-note class="text-xs leading-relaxed text-zinc-400">Checking your wallet…</span>
-        </span>
-        <button data-wallet-connect type="button" class="shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 whitespace-nowrap" disabled>Checking…</button>
-        <button data-wallet-disconnect type="button" class="hidden shrink-0 h-9 px-3 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap">Disconnect</button>
-      </section>
-
       <section id="how-it-works" class="rounded-2xl border border-zinc-800 bg-zinc-900">
         <button id="how-open" type="button" aria-haspopup="dialog" class="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-colors hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
           <span class="min-w-0 flex-1 flex flex-col gap-1">
@@ -485,7 +498,44 @@
 
   <script src="/browser-wallet.js"></script>
   <script>
-    window.snailDerbyBrowserWallet.createBrowserWallet({ section: document.getElementById('browser-wallet') });
+    // Header wallet: the button opens the wallet menu, which holds the
+    // HomeRoom wallet and the browser wallet. The dot on the button shows a
+    // connected browser wallet.
+    (function () {
+      var button = document.getElementById('wallet-button');
+      var menu = document.getElementById('wallet-menu');
+      var dot = button.querySelector('[data-browser-dot]');
+
+      window.snailDerbyBrowserWallet.createBrowserWallet({
+        section: document.getElementById('browser-wallet'),
+        onState: function (state) {
+          button.setAttribute('data-browser-wallet', state);
+          dot.classList.toggle('hidden', state !== 'connected');
+        }
+      });
+
+      function setOpen(open) {
+        menu.hidden = !open;
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+
+      button.addEventListener('click', function () { setOpen(menu.hidden); });
+
+      // Taps inside the menu (Connect, Disconnect) keep it open so the
+      // result message stays visible.
+      document.addEventListener('pointerdown', function (e) {
+        if (menu.hidden || menu.contains(e.target) || button.contains(e.target)) return;
+        setOpen(false);
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || menu.hidden) return;
+        setOpen(false);
+        button.focus({ preventScroll: true });
+      });
+
+      if (new URLSearchParams(location.search).get('wallet') === 'open') setOpen(true);
+    })();
   </script>
 
   <script src="/derby-stories.js"></script>
@@ -1768,7 +1818,16 @@
         return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
       }
 
+      // The header button shows the HomeRoom wallet shortened; the wallet
+      // menu's HOMEROOM WALLET row shows it in full.
       var el = document.getElementById('wallet');
+      var homeAddr = document.querySelector('[data-homeroom-address]');
+      var homeNote = document.querySelector('[data-homeroom-note]');
+      function showHome(short, full, note) {
+        el.textContent = short;
+        homeAddr.textContent = full;
+        homeNote.textContent = note;
+      }
       fetch('/api/me', { headers: authHeaders() })
         .then(function (r) {
           if (!r.ok) throw new Error('me ' + r.status);
@@ -1776,15 +1835,15 @@
         })
         .then(function (me) {
           if (me && me.wallet) {
-            el.textContent = truncate(me.wallet);
+            showHome(truncate(me.wallet), me.wallet, 'Your $NAIL and leaderboard place use this wallet.');
             el.title = me.wallet;
           } else {
-            el.textContent = 'No wallet linked';
+            showHome('No wallet linked', 'No wallet linked', 'Link a HomeRoom wallet to appear on the leaderboard.');
           }
         })
         // Only a successful answer can say no wallet is linked; a failed
         // request (expired sign-in, server or network error) says so instead.
-        .catch(function () { el.textContent = 'Couldn\'t load wallet'; });
+        .catch(function () { showHome('Couldn\'t load wallet', 'Couldn\'t load wallet', ''); });
 
       // Daily Derby Leaderboard. The server ranks and marks the viewer's own
       // row (isYou); this only renders what it sends.

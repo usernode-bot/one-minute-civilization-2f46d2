@@ -244,19 +244,25 @@
       "expectText": "Faster snails win more often, but long shots earn more $NAIL."
     },
     {
-      "id": "race.browser-wallet",
-      "name": "Race tab shows the Browser wallet card",
-      "path": "/",
-      "expectSelector": "#panel-race:not([hidden]) #browser-wallet[data-wallet-state]",
+      "id": "header.wallet-menu",
+      "name": "Header wallet menu shows both wallets",
+      "path": "/?wallet=open",
+      "expectSelector": "#wallet-menu:not([hidden]) [data-homeroom-wallet] ~ #browser-wallet[data-wallet-state]",
       "visual": true,
       "impact": [
-        "public/index.html"
+        "public/index.html",
+        "public/browser-wallet.js"
       ]
     },
     {
-      "name": "Browser wallet card is labelled",
+      "name": "Header wallet is a menu button",
       "path": "/",
-      "expectText": "BROWSER WALLET"
+      "expectSelector": "header #wallet-button[aria-haspopup=\"true\"] #wallet"
+    },
+    {
+      "name": "Race tab starts with How it works, no Browser wallet card",
+      "path": "/",
+      "expectSelector": "#panel-race > #how-it-works:first-child"
     },
     {
       "id": "arena.maps",
