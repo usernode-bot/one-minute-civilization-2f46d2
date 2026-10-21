@@ -219,6 +219,16 @@
       "expectSelector": "#race-history[data-loaded] [data-history-empty]"
     },
     {
+      "name": "History link opens the History tab selected",
+      "path": "/?tab=history",
+      "expectSelector": "#tabs [data-tab=\"history\"][aria-selected=\"true\"]"
+    },
+    {
+      "name": "History link passed through the platform deep link opens the History tab",
+      "path": "/?path=%2F%3Ftab%3Dhistory",
+      "expectSelector": "#panel-history:not([hidden]) #race-history"
+    },
+    {
       "id": "race.how-it-works",
       "name": "Race tab shows the How it works card with a Full guide button",
       "path": "/",

@@ -82,7 +82,7 @@
   <main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
     <nav id="tabs" role="tablist" aria-label="Snail Derby sections" class="grid grid-cols-5 gap-1 p-1 rounded-xl border border-zinc-800 bg-zinc-900">
       <button id="tab-race" type="button" role="tab" data-tab="race" aria-controls="panel-race" aria-selected="true" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors bg-violet-600 text-white">Race</button>
-      <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leaderboard</button>
+      <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leader&shy;board</button>
       <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
       <button id="tab-cage" type="button" role="tab" data-tab="cage" aria-controls="panel-cage" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Cage</button>
       <button id="tab-arena" type="button" role="tab" data-tab="arena" aria-controls="panel-arena" aria-selected="false" tabindex="-1" class="w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Arena</button>
@@ -339,7 +339,21 @@
         });
       });
 
-      show(new URLSearchParams(location.search).get('tab') || 'race');
+      // The tab can arrive as ?tab=history, or nested inside the deep-link
+      // pass-through the platform shell uses (?path=%2F%3Ftab%3Dhistory),
+      // which is how a shared or captured History link is opened.
+      function tabFromUrl() {
+        var params = new URLSearchParams(location.search);
+        var name = params.get('tab');
+        if (!name) {
+          var inner = params.get('path') || '';
+          var q = inner.indexOf('?');
+          try { name = new URLSearchParams(q >= 0 ? inner.slice(q + 1) : '').get('tab'); } catch (_) {}
+        }
+        return name || 'race';
+      }
+
+      show(tabFromUrl());
     })();
   </script>
 
@@ -1692,7 +1706,7 @@
       // On a miss the winner is named too. Narrow screens tuck the WIN or
       // MISS beside the pick and wrap the winner under it.
       function historyRace(r) {
-        var li = node('li', 'grid grid-cols-[1.25rem_4rem_1fr_auto] sm:grid-cols-[1.25rem_4rem_1fr_auto_auto] gap-2 py-0.5 items-start');
+        var li = node('li', 'grid grid-cols-[1.25rem_3.75rem_1fr_auto] sm:grid-cols-[1.25rem_4rem_1fr_auto_auto] gap-x-1.5 sm:gap-x-2 py-0.5 items-start');
         li.setAttribute('data-history-race', String(r.raceNumber));
         li.setAttribute('data-history-state', r.won ? 'win' : 'miss');
         var word = r.won ? 'WIN' : 'MISS';
@@ -1709,7 +1723,11 @@
         }
         li.appendChild(pick);
         li.appendChild(node('span', 'hidden sm:block ' + wordCls, word));
-        li.appendChild(node('span', 'text-right ' + (r.won ? 'text-zinc-100' : 'text-zinc-500'), '+' + r.nail + ' $NAIL'));
+        var pts = node('span', 'text-right ' + (r.won ? 'text-zinc-100' : 'text-zinc-500'));
+        pts.appendChild(node('span', '', '+'));
+        pts.appendChild(node('span', 'sm:hidden', String(r.nail)));
+        pts.appendChild(node('span', 'hidden sm:inline', ' ' + r.nail + ' $NAIL'));
+        li.appendChild(pts);
         return li;
       }
 
