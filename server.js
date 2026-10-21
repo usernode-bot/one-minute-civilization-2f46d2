@@ -22,7 +22,13 @@ const {
   effectiveTenths,
   nailForOdds,
 } = require('./nail-config');
-const { yesterdayDerbyId, nailTotals, claimRaces } = require('./derby-totals');
+const {
+  derbyIdFor,
+  yesterdayDerbyId,
+  nailTotals,
+  raceHistory,
+  claimRaces,
+} = require('./derby-totals');
 const {
   CARE_COSTS,
   KINDS,
@@ -367,6 +373,30 @@ app.get('/api/derby', async (req, res) => {
   } catch (err) {
     console.warn('derby query failed: ' + err.message);
     res.status(500).json({ error: 'Races unavailable' });
+  }
+});
+
+// The player's finished races from the last 7 derby days, newest day first.
+// Read-only: it creates, claims and writes nothing. Today's races are left
+// out because the Daily Derby card already shows them, so a finished race
+// appears here the next day. The staging demo derby is left out, as it is
+// from the totals.
+app.get('/api/derby/history', async (req, res) => {
+  try {
+    const now = Date.now();
+    const since = derbyIdFor(new Date(now - 7 * 24 * 60 * 60 * 1000));
+    const days = await raceHistory(
+      pool,
+      playerKeys(req),
+      userIdOf(req),
+      since,
+      todayDerby().derbyId,
+      DEMO_DERBY_ID
+    );
+    res.json({ days });
+  } catch (err) {
+    console.warn('history query failed: ' + err.message);
+    res.status(500).json({ error: 'History unavailable' });
   }
 });
 
