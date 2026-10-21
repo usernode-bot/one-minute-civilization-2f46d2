@@ -225,6 +225,15 @@
         <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
         <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
       </section>
+
+      <section id="race-history" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div>
+          <h2 class="text-lg font-bold tracking-wide">PAST RACES</h2>
+          <p class="text-xs text-zinc-400">Your last 7 derby days, newest first.</p>
+        </div>
+        <div id="race-history-list" class="border-t border-zinc-800 pt-3 text-sm text-zinc-400">Loading past races…</div>
+        <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
+      </section>
     </div>
     <div id="panel-arena" role="tabpanel" aria-labelledby="tab-arena" hidden>
       <div id="arena-root"></div>
@@ -701,6 +710,8 @@
       var summaryEl = document.getElementById('derby-summary');
       var scoreEl = document.querySelector('#daily-derby [data-score]');
       var logEl = document.getElementById('derby-log');
+      var historyEl = document.getElementById('race-history');
+      var historyList = document.getElementById('race-history-list');
 
       // waiting | selected | racing | result | done
       var state = 'waiting';
@@ -1553,6 +1564,81 @@
         }
       }
 
+      // Past races: the 7 derby days before today, newest first, read once
+      // when the page opens. It never shows today, so it cannot go stale.
+      var HISTORY_MUTED = 'border-t border-zinc-800 pt-3 text-sm text-zinc-400';
+
+      function historyDayLabel(date) {
+        return new Date(date + 'T00:00:00Z').toLocaleDateString('en-US', {
+          timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric'
+        }).toUpperCase();
+      }
+
+      function historyName(id) {
+        return NAMES[id] || id;
+      }
+
+      function renderHistory(days) {
+        historyList.textContent = '';
+        if (!days.length) {
+          historyList.textContent = 'No past races yet. Races you finish show up here the next day.';
+          historyList.className = HISTORY_MUTED;
+          historyList.setAttribute('data-history-empty', '');
+          return;
+        }
+        historyList.className = 'flex flex-col';
+        days.forEach(function (day) {
+          var wrap = node('div', 'border-t border-zinc-800 pt-3 font-mono tabular-nums text-sm flex flex-col');
+          wrap.setAttribute('data-history-day', day.date);
+          var head = node('div', 'grid grid-cols-[1fr_auto] gap-3 font-bold pb-1');
+          head.appendChild(node('span', 'text-zinc-200', historyDayLabel(day.date)));
+          head.appendChild(node('span', 'text-right text-zinc-100', '$NAIL ' + day.total));
+          wrap.appendChild(head);
+          var ol = node('ol', 'flex flex-col');
+          day.races.forEach(function (r) {
+            var won = !!r.won;
+            var li = node('li', 'grid grid-cols-[1.25rem_1fr_auto_auto] sm:grid-cols-[1.25rem_4rem_1fr_auto_auto] items-center gap-2 py-0.5');
+            li.setAttribute('data-history-race', String(r.raceNumber));
+            li.setAttribute('data-history-state', won ? 'win' : 'miss');
+            li.appendChild(node('span', 'text-zinc-400', STEPS.win.glyph));
+            li.appendChild(node('span', 'text-zinc-400', 'Race ' + r.raceNumber));
+            // On a phone the WIN/MISS word sits beside the pick and the
+            // winner wraps under it; from sm up they get their own columns.
+            var pickCell = node('span', 'min-w-0 ' + (won ? 'text-zinc-100' : 'text-zinc-400'));
+            pickCell.appendChild(node('span', '', historyName(r.pick)));
+            pickCell.appendChild(node('span', 'sm:hidden ' + (won ? 'font-semibold text-violet-300' : 'text-zinc-500'), won ? ' WIN' : ' MISS'));
+            if (!won) {
+              pickCell.appendChild(node('span', 'hidden sm:inline text-zinc-400', ' · ' + historyName(r.winner) + ' won'));
+              pickCell.appendChild(node('span', 'sm:hidden block text-zinc-500', historyName(r.winner) + ' won'));
+            }
+            li.appendChild(pickCell);
+            li.appendChild(node('span', 'hidden sm:inline text-right ' + (won ? 'font-semibold text-violet-300' : 'text-zinc-500'), won ? 'WIN' : 'MISS'));
+            li.appendChild(node('span', 'text-right ' + (won ? 'text-zinc-100' : 'text-zinc-500'), '+' + r.nail + ' $NAIL'));
+            ol.appendChild(li);
+          });
+          wrap.appendChild(ol);
+          historyList.appendChild(wrap);
+        });
+      }
+
+      function loadHistory() {
+        fetch('/api/derby/history', { headers: window.snailDerby.authHeaders() })
+          .then(function (res) {
+            if (!res.ok) throw new Error('history ' + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            renderHistory(data && Array.isArray(data.days) ? data.days : []);
+            historyEl.setAttribute('data-loaded', '');
+          })
+          .catch(function () {
+            historyList.textContent = 'Past races could not load.';
+            historyList.className = HISTORY_MUTED;
+            historyList.setAttribute('data-history-error', '');
+            historyEl.setAttribute('data-loaded', '');
+          });
+      }
+
       function render() {
         var st = stage();
         card.setAttribute('data-state', state);
@@ -1654,6 +1740,7 @@
 
       render();
       load();
+      loadHistory();
 
       // Shared with the Cage script, which redraws the same snail tokens
       // with a chosen shell colour and hat. `node` stays in scope here.

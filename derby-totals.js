@@ -34,6 +34,58 @@ async function nailTotals(db, keys, userId, yesterdayId, excludeId) {
   };
 }
 
+// The player's finished races over a window of derby days, `sinceId`
+// (inclusive) to `beforeId` (exclusive), newest day first. `keys` and
+// `userId` are the same filters as nailTotals, so races run before a wallet
+// was linked still count; `excludeId` keeps the staging demo derby out.
+async function raceHistory(db, keys, userId, sinceId, beforeId, excludeId) {
+  const { rows } = await db.query(
+    `SELECT derby_id, race_number, picked_snail, winner_snail, nail_awarded
+       FROM derby_races
+      WHERE (player_key = ANY($1) OR user_id = $2)
+        AND resolved_at IS NOT NULL
+        AND derby_id <> $5
+        AND derby_id >= $3 AND derby_id < $4
+      ORDER BY derby_id DESC, race_number ASC, resolved_at ASC`,
+    [keys, userId, sinceId, beforeId, excludeId]
+  );
+  return groupHistory(rows);
+}
+
+// Groups flat race rows into days, newest first, races by number. `date` is
+// the derby id without its 'daily-' prefix. One player can have the same
+// race number twice in a day (before and after linking a wallet), and both
+// are kept: nailTotals counts both, so the day's total matches what the
+// player earned.
+function groupHistory(rows) {
+  const days = new Map();
+  for (const r of rows) {
+    let day = days.get(r.derby_id);
+    if (!day) {
+      day = {
+        derbyId: r.derby_id,
+        date: r.derby_id.replace(/^daily-/, ''),
+        total: 0,
+        races: [],
+      };
+      days.set(r.derby_id, day);
+    }
+    day.races.push({
+      raceNumber: r.race_number,
+      pick: r.picked_snail,
+      winner: r.winner_snail,
+      won: r.picked_snail === r.winner_snail,
+      nail: r.nail_awarded,
+    });
+    day.total += r.nail_awarded || 0;
+  }
+  return Array.from(days.values())
+    .sort((a, b) => (a.derbyId < b.derbyId ? 1 : a.derbyId > b.derbyId ? -1 : 0))
+    .map(day => Object.assign(day, {
+      races: day.races.sort((a, b) => a.raceNumber - b.raceNumber),
+    }));
+}
+
 // Stamps the platform user id on every race stored under the player's
 // current keys that has none yet, so those races stay theirs after the
 // wallet changes. Rows already stamped are left alone.
@@ -45,4 +97,11 @@ function claimRaces(db, keys, userId) {
   );
 }
 
-module.exports = { derbyIdFor, yesterdayDerbyId, nailTotals, claimRaces };
+module.exports = {
+  derbyIdFor,
+  yesterdayDerbyId,
+  nailTotals,
+  raceHistory,
+  groupHistory,
+  claimRaces,
+};

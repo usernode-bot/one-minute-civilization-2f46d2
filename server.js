@@ -22,7 +22,13 @@ const {
   effectiveTenths,
   nailForOdds,
 } = require('./nail-config');
-const { yesterdayDerbyId, nailTotals, claimRaces } = require('./derby-totals');
+const {
+  derbyIdFor,
+  yesterdayDerbyId,
+  nailTotals,
+  raceHistory,
+  claimRaces,
+} = require('./derby-totals');
 const {
   CARE_COSTS,
   KINDS,
@@ -367,6 +373,24 @@ app.get('/api/derby', async (req, res) => {
   } catch (err) {
     console.warn('derby query failed: ' + err.message);
     res.status(500).json({ error: 'Races unavailable' });
+  }
+});
+
+// The player's past races, grouped by derby day. It covers the 7 derby days
+// before today, newest first; today's races stay in /api/derby above. Reads
+// only: nothing here writes, and the staging demo derby is excluded the same
+// way it is from the player's totals.
+app.get('/api/derby/history', async (req, res) => {
+  try {
+    const sinceId = derbyIdFor(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const { derbyId: beforeId } = todayDerby();
+    const days = await raceHistory(
+      pool, playerKeys(req), userIdOf(req), sinceId, beforeId, DEMO_DERBY_ID
+    );
+    res.json({ days });
+  } catch (err) {
+    console.warn('history query failed: ' + err.message);
+    res.status(500).json({ error: 'History unavailable' });
   }
 });
 
