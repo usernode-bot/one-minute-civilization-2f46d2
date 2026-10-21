@@ -339,21 +339,22 @@
         });
       });
 
-      // The tab can arrive as ?tab=history, or nested inside the deep-link
+      // The tab can arrive as ?tab=history, nested inside the deep-link
       // pass-through the platform shell uses (?path=%2F%3Ftab%3Dhistory),
-      // which is how a shared or captured History link is opened.
+      // or after the hash (#/?tab=history), which is how a shared or
+      // captured History link is opened.
       function tabFromUrl() {
-        var params = new URLSearchParams(location.search);
-        var name = params.get('tab');
-        if (!name) {
-          var inner = params.get('path') || '';
-          var q = inner.indexOf('?');
-          try { name = new URLSearchParams(q >= 0 ? inner.slice(q + 1) : '').get('tab'); } catch (_) {}
-        }
-        return name || 'race';
+        // Read ?tab= wherever it lands: directly, inside the ?path= value
+        // (once or twice encoded), or after the hash.
+        var raw = location.search + location.hash;
+        try { raw = decodeURIComponent(raw); } catch (_) {}
+        var m = /(?:^|[?&\/])tab=([A-Za-z_-]+)/.exec(raw);
+        return m ? m[1] : 'race';
       }
 
       show(tabFromUrl());
+      window.addEventListener('popstate', function () { show(tabFromUrl()); });
+      window.addEventListener('hashchange', function () { show(tabFromUrl()); });
     })();
   </script>
 
