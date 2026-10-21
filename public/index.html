@@ -996,9 +996,11 @@
         trackEl.setAttribute('data-phase', phase);
       }
 
-      // Start sound, synthesised with Web Audio (no asset). The context is
-      // created and resumed inside the Run click so autoplay rules allow it;
-      // without Web Audio the race simply runs silently.
+      // Race sounds, synthesised with Web Audio (no assets): the 3, 2, 1
+      // beeps, a low buzzer on GO, a crowd cheer at the finish and a rising
+      // crescendo when the picked snail wins. The context is created and
+      // resumed inside the Run click so autoplay rules allow it; without Web
+      // Audio the race simply runs silently.
       var audioCtx = null;
       function unlockAudio() {
         try {
@@ -1028,6 +1030,96 @@
           osc.stop(t + len + 0.02);
         } catch (e) {}
       }
+      // A short, low buzzer on GO, like a starting horn.
+      function buzzer() {
+        if (!audioCtx || audioCtx.state === 'closed') return;
+        try {
+          var t = audioCtx.currentTime;
+          var osc = audioCtx.createOscillator();
+          var filter = audioCtx.createBiquadFilter();
+          var gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(110, t);
+          osc.frequency.linearRampToValueAtTime(95, t + 0.4);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(900, t);
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.12, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + 0.42);
+        } catch (e) {}
+      }
+      // A short crowd cheer: a burst of white noise through a bandpass,
+      // built once and cached. A slow wobble on the gain keeps it crowd-like
+      // rather than a flat hiss.
+      var cheerBuffer = null;
+      function cheer() {
+        if (!audioCtx || audioCtx.state === 'closed') return;
+        try {
+          var t = audioCtx.currentTime;
+          var len = 1.6;
+          if (!cheerBuffer) {
+            var frames = Math.floor(audioCtx.sampleRate * len);
+            cheerBuffer = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
+            var data = cheerBuffer.getChannelData(0);
+            for (var i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+          }
+          var src = audioCtx.createBufferSource();
+          var filter = audioCtx.createBiquadFilter();
+          var gain = audioCtx.createGain();
+          var lfo = audioCtx.createOscillator();
+          var lfoGain = audioCtx.createGain();
+          src.buffer = cheerBuffer;
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1200, t);
+          filter.frequency.linearRampToValueAtTime(1500, t + 1.2);
+          filter.Q.setValueAtTime(0.8, t);
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.14, t + 0.15);
+          gain.gain.setValueAtTime(0.14, t + 0.7);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+          lfo.type = 'sine';
+          lfo.frequency.setValueAtTime(6, t);
+          lfoGain.gain.setValueAtTime(0.04, t);
+          lfoGain.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+          lfo.connect(lfoGain);
+          lfoGain.connect(gain.gain);
+          src.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          src.start(t);
+          src.stop(t + len);
+          lfo.start(t);
+          lfo.stop(t + len);
+        } catch (e) {}
+      }
+      // Rising notes over the cheer when the snail the player picked wins.
+      function crescendo() {
+        if (!audioCtx || audioCtx.state === 'closed') return;
+        try {
+          var t = audioCtx.currentTime;
+          var notes = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+          notes.forEach(function (freq, i) {
+            var start = t + i * 0.11;
+            var hold = i === notes.length - 1 ? 0.5 : 0.12;
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.1 + i * 0.01, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + hold);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(start);
+            osc.stop(start + hold + 0.02);
+          });
+        } catch (e) {}
+      }
 
       // 3, 2, 1, GO while the server settles the race. If it is slow, every
       // snail creeps forward together (up to 15% of the track) so nobody
@@ -1047,6 +1139,7 @@
           var word = seq[i++];
           countText.textContent = word;
           beep(word === 'GO!');
+          if (word === 'GO!') buzzer();
           countText.className = 'font-mono text-6xl font-bold ' + (word === 'GO!' ? 'text-violet-300' : 'text-zinc-100');
           if (!REDUCED && countText.animate) {
             countText.animate(
@@ -1124,6 +1217,11 @@
             }
           }
         });
+        setTimeout(function () {
+          if (id !== runId) return;
+          cheer();
+          if (res.winner === res.pick) crescendo();
+        }, REDUCED || !lanes[res.winner].tok.animate ? 300 : WIN_MS);
         setTimeout(function () {
           if (id !== runId) return;
           Object.keys(lanes).forEach(function (sid) {
