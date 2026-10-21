@@ -225,6 +225,17 @@
         <ol id="derby-log" class="hidden flex-col border-t border-zinc-800 pt-3 text-sm font-mono tabular-nums"></ol>
         <p data-score class="text-sm font-bold font-mono tabular-nums text-zinc-100 border-t border-zinc-800 pt-3">RACE 1 / 8 · $NAIL 0</p>
       </section>
+
+      <section id="race-history" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 flex flex-col gap-3">
+        <div>
+          <h2 class="text-lg font-bold tracking-wide">PAST RACES</h2>
+          <p class="text-xs text-zinc-400">Your last 7 derby days, newest first.</p>
+        </div>
+        <div id="race-history-list" class="flex flex-col gap-3 text-sm font-mono tabular-nums">
+          <p class="text-sm text-zinc-400 border-t border-zinc-800 pt-3">Loading past races…</p>
+        </div>
+        <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value.</p>
+      </section>
     </div>
     <div id="panel-arena" role="tabpanel" aria-labelledby="tab-arena" hidden>
       <div id="arena-root"></div>
@@ -328,7 +339,22 @@
         });
       });
 
-      show(new URLSearchParams(location.search).get('tab') || 'race');
+      // The tab can arrive as ?tab=history, nested inside the deep-link
+      // pass-through the platform shell uses (?path=%2F%3Ftab%3Dhistory),
+      // or after the hash (#/?tab=history), which is how a shared or
+      // captured History link is opened.
+      function tabFromUrl() {
+        // Read ?tab= wherever it lands: directly, inside the ?path= value
+        // (once or twice encoded), or after the hash.
+        var raw = location.search + location.hash;
+        try { raw = decodeURIComponent(raw); } catch (_) {}
+        var m = /(?:^|[?&\/])tab=([A-Za-z_-]+)/.exec(raw);
+        return m ? m[1] : 'race';
+      }
+
+      show(tabFromUrl());
+      window.addEventListener('popstate', function () { show(tabFromUrl()); });
+      window.addEventListener('hashchange', function () { show(tabFromUrl()); });
     })();
   </script>
 
@@ -1750,8 +1776,103 @@
         renderScore();
       }
 
+      // Past races: the player's finished races from earlier derby days,
+      // read once from the server. Today's races stay in the Daily Derby
+      // card above, so the server never sends them here.
+      var historySection = document.getElementById('race-history');
+      var historyList = document.getElementById('race-history-list');
+
+      function snailName(id) {
+        return NAMES[id] || id;
+      }
+
+      // The derby day as its UTC date, e.g. MON, OCT 19.
+      function historyDayLabel(date) {
+        var d = new Date(date + 'T00:00:00Z');
+        if (isNaN(d.getTime())) return date;
+        return d.toLocaleDateString('en-US', {
+          timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric'
+        }).toUpperCase();
+      }
+
+      function historyNote(text, attr) {
+        var p = node('p', 'text-sm text-zinc-400 border-t border-zinc-800 pt-3', text);
+        p.setAttribute(attr, '');
+        return p;
+      }
+
+      // One finished race: the snail picked, WIN or MISS, and the $NAIL.
+      // On a miss the winner is named too. Narrow screens tuck the WIN or
+      // MISS beside the pick and wrap the winner under it.
+      function historyRace(r) {
+        var li = node('li', 'grid grid-cols-[1.25rem_3.75rem_1fr_auto] sm:grid-cols-[1.25rem_4rem_1fr_auto_auto] gap-x-1.5 sm:gap-x-2 py-0.5 items-start');
+        li.setAttribute('data-history-race', String(r.raceNumber));
+        li.setAttribute('data-history-state', r.won ? 'win' : 'miss');
+        var word = r.won ? 'WIN' : 'MISS';
+        var wordCls = r.won ? 'font-semibold text-violet-300' : 'text-zinc-500';
+        li.appendChild(node('span', 'text-zinc-400', STEPS.win.glyph));
+        li.appendChild(node('span', 'text-zinc-400', 'Race ' + r.raceNumber));
+        var pick = node('span', r.won ? 'text-zinc-100' : 'text-zinc-400');
+        pick.appendChild(node('span', '', snailName(r.pick)));
+        pick.appendChild(node('span', 'ml-1 text-xs sm:hidden ' + wordCls, word));
+        if (!r.won) {
+          pick.appendChild(node('br', 'sm:hidden'));
+          pick.appendChild(node('span', 'text-xs text-zinc-500 sm:hidden', snailName(r.winner) + ' won'));
+          pick.appendChild(node('span', 'hidden text-zinc-500 sm:inline', ' · ' + snailName(r.winner) + ' won'));
+        }
+        li.appendChild(pick);
+        li.appendChild(node('span', 'hidden sm:block ' + wordCls, word));
+        var pts = node('span', 'text-right ' + (r.won ? 'text-zinc-100' : 'text-zinc-500'));
+        pts.appendChild(node('span', '', '+'));
+        pts.appendChild(node('span', 'sm:hidden', String(r.nail)));
+        pts.appendChild(node('span', 'hidden sm:inline', ' ' + r.nail + ' $NAIL'));
+        li.appendChild(pts);
+        return li;
+      }
+
+      // One derby day: its date and $NAIL total, then that day's races.
+      function historyDay(day) {
+        var d = node('div', 'border-t border-zinc-800 pt-3 flex flex-col font-mono tabular-nums');
+        d.setAttribute('data-history-day', day.date);
+        var head = node('div', 'grid grid-cols-[1fr_auto] gap-3 pb-1 font-bold');
+        head.appendChild(node('span', 'text-zinc-300', historyDayLabel(day.date)));
+        head.appendChild(node('span', 'text-right text-zinc-100', '$NAIL ' + day.total));
+        d.appendChild(head);
+        var races = node('ol', 'flex flex-col');
+        day.races.forEach(function (r) { races.appendChild(historyRace(r)); });
+        d.appendChild(races);
+        return d;
+      }
+
+      function renderHistory(days) {
+        historyList.textContent = '';
+        if (!days.length) {
+          historyList.appendChild(historyNote(
+            'No past races yet. Races you finish show up here the next day.',
+            'data-history-empty'
+          ));
+          return;
+        }
+        days.forEach(function (day) { historyList.appendChild(historyDay(day)); });
+      }
+
+      function loadHistory() {
+        return fetch('/api/derby/history', { headers: window.snailDerby.authHeaders() })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (d) {
+            historySection.setAttribute('data-loaded', '');
+            renderHistory(d.days || []);
+          })
+          .catch(function () {
+            historySection.setAttribute('data-loaded', '');
+            historyList.textContent = '';
+            historyList.appendChild(historyNote('Past races could not load.', 'data-history-error'));
+          });
+      }
+
       render();
       load();
+      loadHistory();
 
       // Shared with the Cage script, which redraws the same snail tokens
       // with a chosen shell colour and hat. `node` stays in scope here.
