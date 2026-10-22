@@ -241,7 +241,23 @@
     {
       "name": "How it works summary explains the game",
       "path": "/",
-      "expectText": "Faster snails win more often, but long shots earn more $NAIL."
+      "expectText": "Long shots earn more."
+    },
+    {
+      "id": "race.start-here",
+      "name": "Race tab shows the Start here card to a new player",
+      "path": "/",
+      "expectSelector": "#panel-race:not([hidden]) #start-here:not(.hidden) [data-start-pick]",
+      "visual": true,
+      "impact": [
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Race tab labels the snail list",
+      "path": "/",
+      "expectSelector": "#race-field #race-pick-head",
+      "expectText": "Pick your snail"
     },
     {
       "id": "race.browser-wallet",

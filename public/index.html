@@ -89,6 +89,29 @@
     </nav>
 
     <div id="panel-race" role="tabpanel" aria-labelledby="tab-race" class="space-y-4">
+      <section id="start-here" aria-labelledby="start-here-title"
+        class="hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex-col gap-3">
+        <h2 id="start-here-title" class="text-sm font-bold tracking-wide text-zinc-100">START HERE</h2>
+        <ol class="flex flex-col gap-2 text-sm leading-relaxed text-zinc-300">
+          <li class="flex gap-3">
+            <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+            <span><b class="text-zinc-100">Pick a snail.</b> Tap Pick on the snail you think will win.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+            <span><b class="text-zinc-100">Tap RUN RACE.</b> The snails crawl to the finish line.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+            <span><b class="text-zinc-100">Watch and earn $NAIL.</b> If your snail wins, you earn $NAIL points. Play all 8 races.</span>
+          </li>
+        </ol>
+        <div class="flex gap-2">
+          <button type="button" data-start-pick class="flex-1 h-11 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700">Pick your snail</button>
+          <button type="button" data-start-dismiss class="shrink-0 w-24 h-11 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700">Got it</button>
+        </div>
+      </section>
+
       <section id="browser-wallet" data-wallet-state="disconnected"
         class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-wrap items-center gap-3">
         <span class="w-full sm:w-auto min-w-0 sm:flex-1 flex flex-col gap-1">
@@ -104,7 +127,7 @@
         <button id="how-open" type="button" aria-haspopup="dialog" class="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-colors hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
           <span class="min-w-0 flex-1 flex flex-col gap-1">
             <span class="text-sm font-bold tracking-wide text-zinc-100">HOW IT WORKS</span>
-            <span class="text-xs leading-relaxed text-zinc-400">Pick one of six snails and hit RUN RACE. Faster snails win more often, but long shots earn more $NAIL. Play all 8 races to climb today's leaderboard.</span>
+            <span class="text-xs leading-relaxed text-zinc-400">1. Pick a snail. 2. Tap RUN RACE. 3. Watch the race and earn $NAIL if your snail wins. Long shots earn more. Play all 8 races to climb today's leaderboard.</span>
           </span>
           <span class="shrink-0 text-xs font-semibold text-violet-300 whitespace-nowrap">Full guide ›</span>
         </button>
@@ -126,6 +149,10 @@
         </div>
 
         <div id="race-field">
+          <div id="race-pick-head" class="flex flex-col gap-0.5 pb-2">
+            <h3 class="text-sm font-bold tracking-wide text-zinc-100">Pick your snail</h3>
+            <p class="text-xs leading-relaxed text-zinc-400">Tap Pick on the snail you think will win, then tap RUN RACE.</p>
+          </div>
           <div class="hidden sm:grid grid-cols-[1fr_4.5rem_5rem_4rem_7rem] gap-2 px-2 pb-2 text-xs text-zinc-500 border-b border-zinc-800">
             <span class="font-medium">Snail</span>
             <span class="font-medium text-right">Speed</span>
@@ -371,7 +398,7 @@
         </li>
         <li class="flex gap-3">
           <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-          <span><b class="text-zinc-100">Run the race.</b> Hit RUN RACE. After a 3, 2, 1, GO countdown the snails crawl to the finish line.</span>
+          <span><b class="text-zinc-100">Run the race.</b> Tap RUN RACE. After a 3, 2, 1, GO countdown the snails crawl to the finish line.</span>
         </li>
         <li class="flex gap-3">
           <span class="shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span>
@@ -677,7 +704,7 @@
       var ROW_OFF = ' border-transparent';
       var BTN = 'shrink-0 w-28 sm:w-auto h-11 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed';
       var BTN_ON = ' bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700';
-      var BTN_OFF = ' border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 disabled:text-zinc-500 disabled:border-zinc-800 disabled:hover:bg-transparent';
+      var BTN_OFF = ' border border-violet-600 bg-violet-600 text-white active:bg-violet-700 disabled:bg-zinc-800 disabled:border-zinc-800 disabled:text-zinc-500 sm:border-zinc-700 sm:bg-transparent sm:text-zinc-100 sm:hover:bg-zinc-800 sm:active:bg-zinc-700 sm:disabled:text-zinc-500 sm:disabled:border-zinc-800 sm:disabled:hover:bg-transparent';
       var CHIP_ON = 'shrink-0 text-[10px] font-bold tracking-widest text-white bg-violet-600 rounded px-1.5 py-0.5';
       var PRIMARY = 'w-full h-12 rounded-xl text-base font-bold tracking-wide transition-colors bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed';
       var SECONDARY = 'w-full h-11 rounded-xl text-sm font-bold tracking-wide transition-colors border border-zinc-700 text-zinc-100 hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center gap-2';
@@ -880,6 +907,9 @@
           state = 'selected';
         }
         render();
+        // A phone-width card can put RUN RACE below the fold; bring it into
+        // view without moving focus, so the pick can still be changed.
+        if (state === 'selected') runBtn.scrollIntoView({ block: 'nearest', behavior: REDUCED ? 'auto' : 'smooth' });
       }
 
       // While the derby is still loading, a field cell holds a grey
@@ -1743,7 +1773,7 @@
         summaryEl.className = complete ? 'flex flex-col gap-4' : 'hidden flex-col gap-4';
 
         if (picked && state === 'selected') {
-          confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected. Hit RUN RACE.';
+          confirmEl.textContent = '✓ ' + snailOf(picked).name + ' selected. Tap RUN RACE.';
           confirmEl.className = 'text-sm font-semibold text-violet-300';
         } else {
           confirmEl.textContent = '';
@@ -1878,6 +1908,62 @@
       // with a chosen shell colour and hat. `node` stays in scope here.
       window.snailDerby.snails = SNAILS;
       window.snailDerby.snailToken = snailToken;
+    })();
+  </script>
+
+  <script>
+    // Start here: a short first-visit guide at the top of the Race tab. The
+    // "seen it" note lives in this browser only, is never sent anywhere, and
+    // a blocked localStorage just means the card shows again on each visit.
+    (function () {
+      var KEY = 'snailDerby.startHereSeen';
+      var card = document.getElementById('start-here');
+      var pickBtn = card.querySelector('[data-start-pick]');
+      var dismissBtn = card.querySelector('[data-start-dismiss]');
+      var HOW = document.getElementById('how-open');
+      // The card is shown with `flex`, so the `hidden` attribute alone would
+      // lose to that display rule; the app's own `hidden` class is the switch.
+      var CARD = 'rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex-col gap-3 ';
+      var SHOWN = CARD + 'flex';
+      var GONE = CARD + 'hidden';
+
+      function seen() {
+        try { return localStorage.getItem(KEY) === '1'; } catch (_) { return false; }
+      }
+
+      function remember() {
+        try { localStorage.setItem(KEY, '1'); } catch (_) {}
+      }
+
+      if (!seen()) card.className = SHOWN;
+
+      dismissBtn.addEventListener('click', function () {
+        remember();
+        card.className = GONE;
+        // The card leaves the page, so park focus on the next card instead.
+        if (HOW) HOW.focus();
+      });
+
+      // Running a race counts as having seen the card: it stays put for this
+      // view so the page does not jump, and does not return on later visits.
+      var runBtn = document.getElementById('run-race');
+      if (runBtn) runBtn.addEventListener('click', remember);
+
+      pickBtn.addEventListener('click', function () {
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var behavior = reduced ? 'auto' : 'smooth';
+        var field = document.getElementById('race-field');
+        var head = document.getElementById('race-pick-head');
+        var raceCard = document.getElementById('race-card');
+        var fieldShown = field && !/(^|\s)hidden(\s|$)/.test(field.className);
+        if (fieldShown && head) head.scrollIntoView({ block: 'center', behavior: behavior });
+        else if (raceCard) raceCard.scrollIntoView({ block: 'start', behavior: behavior });
+
+        var firstPick = document.querySelector('#race-snails [data-pick]:not(:disabled)');
+        var run = document.getElementById('run-race');
+        var target = firstPick || (run && !run.disabled ? run : null);
+        if (target) target.focus({ preventScroll: true });
+      });
     })();
   </script>
 
