@@ -80,8 +80,9 @@
   </header>
 
   <main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
-    <nav id="tabs" role="tablist" aria-label="Snail Derby sections" class="flex overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible gap-1 p-1 rounded-xl border border-zinc-800 bg-zinc-900">
+    <nav id="tabs" role="tablist" aria-label="Snail Derby sections" class="flex overflow-x-auto sm:grid sm:grid-cols-6 sm:overflow-visible gap-1 p-1 rounded-xl border border-zinc-800 bg-zinc-900">
       <button id="tab-race" type="button" role="tab" data-tab="race" aria-controls="panel-race" aria-selected="true" class="flex-1 shrink-0 whitespace-nowrap px-3 sm:px-0 sm:w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors bg-violet-600 text-white">Race</button>
+      <button id="tab-train" type="button" role="tab" data-tab="train" aria-controls="panel-train" aria-selected="false" tabindex="-1" class="flex-1 shrink-0 whitespace-nowrap px-3 sm:px-0 sm:w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Train</button>
       <button id="tab-leaderboard" type="button" role="tab" data-tab="leaderboard" aria-controls="panel-leaderboard" aria-selected="false" tabindex="-1" class="flex-1 shrink-0 whitespace-nowrap px-3 sm:px-0 sm:w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Leaderboard</button>
       <button id="tab-history" type="button" role="tab" data-tab="history" aria-controls="panel-history" aria-selected="false" tabindex="-1" class="flex-1 shrink-0 whitespace-nowrap px-3 sm:px-0 sm:w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">History</button>
       <button id="tab-cage" type="button" role="tab" data-tab="cage" aria-controls="panel-cage" aria-selected="false" tabindex="-1" class="flex-1 shrink-0 whitespace-nowrap px-3 sm:px-0 sm:w-full h-11 rounded-lg text-xs sm:text-sm font-semibold transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Cage</button>
@@ -285,6 +286,10 @@
         <p class="text-xs leading-relaxed text-zinc-400 border-t border-zinc-800 pt-3">$NAIL is a game score only. It has no cash value. Using $NAIL in the cage never lowers your all-time total or your leaderboard score.</p>
       </section>
     </div>
+
+    <div id="panel-train" role="tabpanel" aria-labelledby="tab-train" hidden class="space-y-4">
+      <div id="training-root"></div>
+    </div>
   </main>
 
   <script>
@@ -354,6 +359,7 @@
         // The Cage loads its data the first time it is opened. The script
         // below also loads itself on boot if the panel is already open.
         if (name === 'cage' && window.snailDerby.loadCage) window.snailDerby.loadCage();
+        if (name === 'train' && window.snailDerby.loadTraining) window.snailDerby.loadTraining();
       }
 
       buttons.forEach(function (b, i) {
@@ -2457,5 +2463,7 @@
       if (!document.getElementById('panel-cage').hidden) load();
     })();
   </script>
+
+  <script src="/training.js"></script>
 </body>
 </html>
