@@ -37,6 +37,15 @@ const {
   readCage,
   applyCage,
 } = require('./cage');
+const {
+  TRACKS,
+  levelProgress,
+  validateRace,
+  readTraining,
+  applyTraining,
+  applyRace,
+  rulesView: trainingRulesView,
+} = require('./training');
 
 const app = express();
 const DRAIN_MS = 3000;
@@ -665,6 +674,106 @@ app.post('/api/cage/snails/:snailId', async (req, res) => {
   }
 });
 
+// The Training tab. A player's training level and best times for each of the
+// six snails, keyed on the platform user id (userIdOf, like the cage), plus
+// the short-track list and the boost rules the page's race runs on. A snail
+// with no row yet reads as level 1, so a new player gets the full roster.
+function trainingView(db, req, today) {
+  return readTraining(
+    db, userIdOf(req), SNAIL_IDS, today.date + 'T00:00:00Z'
+  ).then(data => Object.assign({
+    date: today.date,
+    tracks: TRACKS,
+    rules: trainingRulesView(),
+  }, data));
+}
+
+app.get('/api/training', async (req, res) => {
+  try {
+    res.json(await trainingView(pool, req, todayDerby()));
+  } catch (err) {
+    console.warn('training query failed: ' + err.message);
+    res.status(500).json({ error: 'Training unavailable' });
+  }
+});
+
+// One training session: +XP for the chosen snail, at most three a snail a
+// UTC day. Runs in one transaction under the player's training advisory
+// lock, so two tabs cannot both spend the day's last session.
+app.post('/api/training/snails/:snailId/train', async (req, res) => {
+  const snailId = req.params.snailId;
+  if (!SNAIL_IDS.includes(snailId)) {
+    return res.status(400).json({ error: 'bad_snail' });
+  }
+  const today = todayDerby();
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const done = await applyTraining(
+      client, userIdOf(req), snailId, today.date + 'T00:00:00Z'
+    );
+    if (done.error) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: done.error });
+    }
+    await client.query('COMMIT');
+    res.json(await trainingView(pool, req, today));
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.warn('training session failed: ' + err.message);
+    res.status(500).json({ error: 'Training unavailable' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// One finished short-track race reported by the page: XP for the finishing
+// place, one more race (and a win for first) and the track's best time when
+// this run beat it. The answer carries the fresh training view plus what the
+// race paid, so the result card can say what changed.
+app.post('/api/training/races', async (req, res) => {
+  const { snailId, trackId, place, timeMs } = req.body || {};
+  if (!SNAIL_IDS.includes(snailId)) {
+    return res.status(400).json({ error: 'bad_snail' });
+  }
+  const check = validateRace(trackId, place, timeMs);
+  if (!check.ok) return res.status(400).json({ error: check.error });
+  const today = todayDerby();
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const done = await applyRace(
+      client, userIdOf(req), snailId, check.track.id, check.place, check.timeMs
+    );
+    await client.query('COMMIT');
+    const view = await trainingView(pool, req, today);
+    const snail = view.snails.find(s => s.id === snailId);
+    const prevLevel = levelProgress(done.prevXp).level;
+    res.json(Object.assign({}, view, {
+      race: {
+        snailId,
+        trackId: check.track.id,
+        place: check.place,
+        timeMs: check.timeMs,
+        xpEarned: done.xpEarned,
+        level: snail.level,
+        prevLevel,
+        leveledUp: snail.level > prevLevel,
+        best: done.best,
+        newBest: done.newBest,
+      },
+    }));
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.warn('training race failed: ' + err.message);
+    res.status(500).json({ error: 'Training unavailable' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
 // /favicon.ico (older browsers, direct visits) doesn't fall through to
@@ -811,6 +920,34 @@ async function migrate() {
   await pool.query(
     'CREATE INDEX IF NOT EXISTS cage_events_user_idx' +
       ' ON cage_events (user_id, snail_id, kind, id DESC)'
+  );
+  // Training: one row per player per snail with the snail's cumulative XP,
+  // its race and win counts and best short-track times keyed by track id.
+  // training_sessions is append-only and only ever counted for "today", the
+  // three-a-day limit. Public like the app's other game tables: they hold a
+  // game level, not anything personal. Never read by the Daily Derby race
+  // code, the $NAIL totals or the leaderboard.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS snail_training (
+      user_id TEXT NOT NULL,
+      snail_id TEXT NOT NULL,
+      xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
+      races INTEGER NOT NULL DEFAULT 0 CHECK (races >= 0),
+      wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
+      bests JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, snail_id)
+    )`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS training_sessions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      snail_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS training_sessions_day_idx' +
+      ' ON training_sessions (user_id, snail_id, created_at)'
   );
   // No longer read or written: it missed races run before it existed and
   // races run before a wallet was linked. Lifetime $NAIL is now summed from

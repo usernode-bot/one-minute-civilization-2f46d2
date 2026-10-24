@@ -312,6 +312,39 @@
       "expectSelector": "#panel-race:not([hidden]) ~ #panel-arena[hidden]"
     },
     {
+      "id": "train.panel",
+      "name": "Train tab shows the six snails with their training level",
+      "path": "/?tab=train",
+      "expectSelector": "#panel-train:not([hidden]) #training[data-loaded] [data-training-snail=\"drea\"]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "public/training.js",
+        "training.js",
+        "server.js"
+      ]
+    },
+    {
+      "name": "Train tab offers the training action and an XP bar for the picked snail",
+      "path": "/?tab=train",
+      "expectSelector": "#training-detail [data-training-train], #training-detail [data-training-xp]"
+    },
+    {
+      "name": "Train tab lists all three short tracks with a race button",
+      "path": "/?tab=train",
+      "expectSelector": "#training-tracks [data-track=\"garden\"] canvas, #training-tracks [data-track-start=\"night\"]"
+    },
+    {
+      "name": "Train tab names the three short tracks",
+      "path": "/?tab=train",
+      "expectText": "Midnight Dash"
+    },
+    {
+      "name": "Train tab sits after Race and is not selected by default",
+      "path": "/",
+      "expectSelector": "#tab-race ~ #tab-train[aria-selected=\"false\"]"
+    },
+    {
       "id": "tabs.cage",
       "name": "Cage tab shows all six snails",
       "path": "/?tab=cage",

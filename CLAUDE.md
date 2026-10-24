@@ -81,5 +81,14 @@ as a token, currency or reward with value. The Daily Derby is free.
 
 ## App-specific conventions
 
-None yet. Add conventions here (product intent, data-model quirks,
-style preferences, opt-in policies) as the new game takes shape.
+### Training mode
+
+The Train tab is a separate loop from the Daily Derby: a per-player,
+per-snail training level (`snail_training`), three free sessions a day
+(`training_sessions`) and three short tracks raced on a canvas
+(`public/training.js`). Levels, XP and best times are derived in
+`training.js`; the page draws from the `rules` the API sends instead of
+repeating them. Training never reads or writes `derby_races`, the $NAIL
+totals or the leaderboard, so a trained snail cannot change a Daily Derby
+race or a score. Both tables are public: they hold a game level, not
+anything personal.
