@@ -1979,7 +1979,10 @@
       fetch('/api/me', { headers: authHeaders() })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (me) {
-          if (me && me.wallet) {
+          if (me && me.username) {
+            el.textContent = me.username;
+            el.title = me.wallet || '';
+          } else if (me && me.wallet) {
             el.textContent = truncate(me.wallet);
             el.title = me.wallet;
           } else {
@@ -2011,9 +2014,10 @@
         return node('span', 'ml-2 text-[10px] font-bold text-violet-300 bg-violet-500/20 rounded px-1.5 py-0.5 align-middle', 'YOU');
       }
 
-      // Every player is their HomeRoom wallet, shown shortened.
+      // A player's HomeRoom username, falling back to their shortened
+      // wallet for rows saved before usernames were stored.
       function playerName(e) {
-        return truncate(e.walletAddress);
+        return e.username || truncate(e.walletAddress);
       }
 
       // The viewer's own rank and score, sent by the server even when they

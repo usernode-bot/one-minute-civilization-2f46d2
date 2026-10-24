@@ -480,10 +480,11 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
       await client.query(
         `INSERT INTO leaderboard_entries
            (derby_id, wallet_address, total_points, submitted_at,
-            verification_status, verified_at)
-         VALUES ($1, $2, $3, now(), 'verified', now())
+            verification_status, verified_at, username)
+         VALUES ($1, $2, $3, now(), 'verified', now(), $4)
          ON CONFLICT (derby_id, wallet_address) DO UPDATE
            SET total_points = EXCLUDED.total_points,
+               username = COALESCE(EXCLUDED.username, leaderboard_entries.username),
                submitted_at = CASE
                  WHEN leaderboard_entries.total_points = EXCLUDED.total_points
                    THEN leaderboard_entries.submitted_at
@@ -494,7 +495,7 @@ app.post('/api/derby/races/:n/run', async (req, res) => {
                    AND leaderboard_entries.verified_at IS NOT NULL
                    THEN leaderboard_entries.verified_at
                  ELSE EXCLUDED.verified_at END`,
-        [derbyId, req.user.usernode_pubkey, total]
+        [derbyId, req.user.usernode_pubkey, total, req.user.username || null]
       );
     }
     await client.query('COMMIT');
@@ -542,7 +543,7 @@ app.get('/api/leaderboard', async (req, res) => {
     if (derbyId !== DEMO_DERBY_ID) await ensureDerby(pool, derbyId, derbyDate);
     // Wallet players only: legacy 'user:<id>' rows are never listed.
     const { rows } = await pool.query(
-      `SELECT wallet_address, total_points, submitted_at
+      `SELECT wallet_address, username, total_points, submitted_at
          FROM leaderboard_entries
         WHERE derby_id = $1 AND verification_status = 'verified'
           AND wallet_address NOT LIKE 'user:%'
@@ -579,6 +580,7 @@ app.get('/api/leaderboard', async (req, res) => {
       entries: rows.map((r, i) => ({
         rank: i + 1,
         walletAddress: r.wallet_address,
+        username: r.username || null,
         totalPoints: r.total_points,
         submittedAt: r.submitted_at,
         verificationStatus: 'verified',
@@ -745,8 +747,8 @@ async function migrate() {
       CHECK (verification_status <> 'verified' OR verified_at IS NOT NULL)
     )`);
   // wallet_address is the player's HomeRoom wallet. Older rows may hold
-  // 'user:<platform id>'; they are never listed. username is no longer
-  // written or shown and is kept only to avoid a destructive migration.
+  // 'user:<platform id>'; they are never listed. username holds the player's
+  // HomeRoom username as of their latest submitted race, null for older rows.
   await pool.query(
     'ALTER TABLE leaderboard_entries ADD COLUMN IF NOT EXISTS username TEXT'
   );
@@ -860,21 +862,24 @@ async function seedStaging() {
   ];
   // DO UPDATE, not DO NOTHING: these fixed demo rows replace older demo
   // values already sitting in a staging database.
-  for (const [key, points, time, status] of rows) {
+  // Most demo players get a demo username; the first keeps none so the
+  // shortened-wallet fallback stays visible on the board.
+  for (const [i, [key, points, time, status]] of rows.entries()) {
     const at = '2026-09-28T' + time + ':00Z';
+    const username = i === 0 ? null : 'demo_racer_' + String(i + 1).padStart(2, '0');
     await pool.query(
       `INSERT INTO leaderboard_entries
          (derby_id, wallet_address, username, total_points, submitted_at,
           verification_status, verified_at)
-       VALUES ($1, $2, NULL, $3, $4, $5,
-               CASE WHEN $5 = 'verified' THEN $4::timestamptz + interval '1 minute' END)
+       VALUES ($1, $2, $3, $4, $5, $6,
+               CASE WHEN $6 = 'verified' THEN $5::timestamptz + interval '1 minute' END)
        ON CONFLICT (derby_id, wallet_address) DO UPDATE
-         SET username = NULL,
+         SET username = EXCLUDED.username,
              total_points = EXCLUDED.total_points,
              submitted_at = EXCLUDED.submitted_at,
              verification_status = EXCLUDED.verification_status,
              verified_at = EXCLUDED.verified_at`,
-      [DEMO_DERBY_ID, key, points, at, status]
+      [DEMO_DERBY_ID, key, username, points, at, status]
     );
   }
 }
