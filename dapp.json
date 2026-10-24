@@ -62,9 +62,9 @@
       ]
     },
     {
-      "name": "Leaderboard shows shortened wallet addresses",
+      "name": "Leaderboard shows player usernames",
       "path": "/?demo=1&tab=leaderboard",
-      "expectText": "ut1sta…0001"
+      "expectText": "@demo-snailfan"
     },
     {
       "name": "Leaderboard header says Today's top scores",
