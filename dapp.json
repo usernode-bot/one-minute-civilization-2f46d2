@@ -67,6 +67,11 @@
       "expectText": "ut1sta…0001"
     },
     {
+      "name": "Leaderboard shows player usernames",
+      "path": "/?demo=1&tab=leaderboard",
+      "expectText": "demo_racer_02"
+    },
+    {
       "name": "Leaderboard header says Today's top scores",
       "path": "/?tab=leaderboard",
       "expectText": "Today's top scores"
